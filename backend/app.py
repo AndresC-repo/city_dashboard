@@ -145,13 +145,13 @@ def build_steps(city: dict, st: dict | None) -> list[dict]:
 
     # 5 census
     census = st.get("census") if st else None
-    census_cmd = f"{cd}\nconda activate pdal\npython src/city/census.py --city-dir {city_dir} --key YOUR_CENSUS_KEY"
+    census_cmd = f"{cd}\nconda activate pdal\npython src/city/census.py --city-dir {city_dir}"
     if census and census.get("has_survey"):
         add("census", "Census data", "done", f"{census['block_groups']} block groups with population and income", "cluster", "")
     else:
         add("census", "Census data", "partial" if census else "todo",
             "Population only; income and housing are missing" if census else "Block groups, population, income, renters, building age",
-            "cluster", census_cmd if plan else "", "Needs your free Census key. Independent of the lidar steps.")
+            "cluster", census_cmd if plan else "", "Reads your Census key from the .env file in the repo folder on the cluster (a line KEY=...). Independent of the lidar steps.")
 
     # 6.. per density: process, then tables
     n_jobs = max(math.ceil(planned / CHUNK), 1)

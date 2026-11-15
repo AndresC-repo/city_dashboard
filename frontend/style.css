@@ -125,3 +125,6 @@ summary { cursor: pointer; color: var(--accent); }
 .city-marker.st-not_started { background: #fff; border-color: var(--neutral); box-shadow: none; border-width: 3px; }
 .city-marker.st-no_lidar { background: var(--neutral); }
 .leaflet-tooltip { font: 12.5px system-ui, sans-serif; }
+
+/* the OpenStreetMap background is colourful: mute it so the city dots and the neighbourhood colours stand out */
+.leaflet-tile-pane { filter: grayscale(0.85) opacity(0.75); }

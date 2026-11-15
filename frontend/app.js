@@ -267,9 +267,10 @@ Vue.createApp({
   },
   mounted() {
     map = L.map('map', { zoomSnap: 0.25 }).setView([38.5, -96.5], 4);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19, subdomains: 'abcd',
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    // OpenStreetMap's own tiles: free, no key. (CARTO's basemap now answers "API key required".)
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
     markerLayer = L.layerGroup().addTo(map);
     map.on('click', e => {

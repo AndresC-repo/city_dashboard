@@ -45,7 +45,7 @@ Step 2 is also available as `make refresh` (in WSL, in this folder).
 | City outline | `city_limits.py` | the official outline was downloaded |
 | Plan the tiles | `plan.py --polygon` | `plan.json` exists |
 | Download the lidar | `fetch.py` | every planned tile is there |
-| Census data | `census.py --key` | block groups with population and income exist |
+| Census data | `census.py` (key from `.env`) | block groups with population and income exist |
 | Process at 4 points per m² | `hpc/city_process.slurm`, `TAG=d4` | every downloaded tile is processed |
 | Result tables at 4 | `combine.py --tag d4 --polygons` | summary and neighbourhood table are current |
 | Process / tables at 8 | same with `d8` | only for cities whose lidar reaches 8 points per m² |
