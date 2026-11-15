@@ -1,0 +1,22 @@
+name,label,state,place,lon,lat,density_est,survey
+gainesville,Gainesville,FL,Gainesville,-82.33,29.65,24.6,FL_Peninsular_FDEM_Alachua_2018
+new_york,New York,NY,New York,-73.97,40.75,4.0,NY_NewYorkCity
+los_angeles,Los Angeles,CA,Los Angeles,-118.24,34.05,18.8,CA_LosAngeles_1_B23
+chicago,Chicago,IL,Chicago,-87.65,41.85,26.5,USGS_LPC_IL_4County_Cook_2017_LAS_2019
+houston,Houston,TX,Houston,-95.37,29.76,10.8,TX_Coastal_B1_2018
+phoenix,Phoenix,AZ,Phoenix,-112.07,33.45,18.6,AZ_MaricopaPinal_1_2020
+philadelphia,Philadelphia,PA,Philadelphia,-75.16,39.95,4.9,USGS_LPC_DE_DelawareValley_HD_2015_LAS_2017
+san_antonio,San Antonio,TX,San Antonio,-98.49,29.42,9.4,USGS_LPC_TX_Central_B2_2017_LAS_2019
+san_diego,San Diego,CA,San Diego,-117.16,32.72,3.9,CA_SanDiegoQL2_2014
+dallas,Dallas,TX,Dallas,-96.80,32.78,4.6,TX_Pecos_Dallas_B3_2018
+jacksonville,Jacksonville,FL,Jacksonville,-81.66,30.33,24.7,FL_Peninsular_FDEM_Duval_2018
+fort_worth,Fort Worth,TX,Fort Worth,-97.33,32.75,4.6,TX_Pecos_Dallas_B3_2018
+san_jose,San Jose,CA,San Jose,-121.89,37.34,34.7,CA_SantaClaraCounty_2020
+austin,Austin,TX,Austin,-97.74,30.27,8.3,USGS_LPC_TX_Central_B1_2017_LAS_2019
+charlotte,Charlotte,NC,Charlotte,-80.84,35.23,27.9,USGS_LPC_NC_Phase4_Mecklenburg_2016_LAS_2019
+columbus,Columbus,OH,Columbus,-83.00,39.96,57.9,OH_StatewideP3_5_B21
+indianapolis,Indianapolis,IN,Indianapolis city (balance),-86.16,39.77,4.2,USGS_LPC_IN_Central_MarionCo_2016_LAS_2018
+san_francisco,San Francisco,CA,San Francisco,-122.42,37.77,61.8,CA_SanFrancisco_1_B23
+seattle,Seattle,WA,Seattle,-122.33,47.61,12.4,WA_KingCo_1_2021
+denver,Denver,CO,Denver,-104.99,39.74,5.0,CO_DRCOG_2_2020
+oklahoma_city,Oklahoma City,OK,Oklahoma City,-97.52,35.47,4.8,OK_Panhandle_B1B_2018

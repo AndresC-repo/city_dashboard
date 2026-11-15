@@ -1,0 +1,11 @@
+{
+  "cluster": {
+    "user": "fr_ac1079",
+    "host": "uc3.scc.kit.edu",
+    "repo": "/pfs/work9/workspace/scratch/fr_ac1079-urban_trees/code/urban-tree-detection",
+    "data": "/pfs/work9/workspace/scratch/fr_ac1079-urban_trees/data",
+    "pdal": "/pfs/work9/workspace/scratch/fr_ac1079-urban_trees/miniconda3/envs/pdal/bin/pdal"
+  },
+  "port": 8010,
+  "pc_folder_wsl": "/mnt/c/Users/andre/Documents/VSC_Code/city_dashboard"
+}

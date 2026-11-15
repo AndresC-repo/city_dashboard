@@ -1,0 +1,17 @@
+# City dashboard: one container (the backend also serves the page).
+#   docker compose up --build        -> http://localhost:8010
+# The source folder is mounted, so code changes reload on their own and the app reads
+# ./data/_dashboard (the copy from the cluster), ./cities.csv and ./config.json directly.
+services:
+  dashboard:
+    build: .
+    volumes:
+      - .:/app
+    ports:
+      - "8010:8010"          # the labelling tool uses 8000, 5173 and 80
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      # This folder as WSL sees it, for the rsync command the app shows.
+      # Empty when compose is started outside WSL: then config.json (pc_folder_wsl) is used.
+      - DASHBOARD_HOST_DIR=${PWD:-}
+    command: uvicorn backend.app:app --host 0.0.0.0 --port 8010 --reload --reload-dir backend

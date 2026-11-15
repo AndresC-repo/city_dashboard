@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>City dashboard · urban trees</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/vendor/leaflet.css">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div id="app" class="viz-root" v-cloak>
+  <header class="top">
+    <div class="brand"><span class="logo">▲</span> City dashboard <span class="sub">urban trees from public lidar</span></div>
+    <div class="top-actions">
+      <span v-if="lastUpdate" class="muted">Cluster data from {{ lastUpdate }}</span>
+      <button class="btn" @click="showRefresh = true">Refresh from cluster</button>
+      <button class="btn" :class="{ active: adding }" @click="toggleAdd">{{ adding ? 'Cancel' : 'Add city' }}</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="map-wrap">
+      <div id="map"></div>
+      <div class="map-legend" v-if="!city">
+        <div v-for="s in statusList" :key="s.key" class="leg-row"><span class="dot" :class="'st-' + s.key"></span>{{ s.label }}</div>
+      </div>
+      <div class="map-legend" v-if="city && tab === 'results' && legend.length">
+        <div class="leg-title">{{ varLabel(mapVar) }}</div>
+        <div v-for="l in legend" :key="l.label" class="leg-row"><span class="swatch" :style="{ background: l.color }"></span>{{ l.label }}</div>
+        <div class="leg-row"><span class="swatch none"></span>no value</div>
+      </div>
+      <div class="map-hint" v-if="adding">Click the map at the city centre</div>
+    </section>
+
+    <aside class="panel">
+      <!-- ============ add city ============ -->
+      <div v-if="adding" class="pad">
+        <h2>Add a city</h2>
+        <p class="muted">Click the map to set the position, then fill in the name as the Census writes it.</p>
+        <label>City name <input v-model="newCity.label" placeholder="e.g. Tampa"></label>
+        <label>State (two letters) <input v-model="newCity.state" maxlength="2" placeholder="FL"></label>
+        <label>Position <input :value="newCity.lon !== null ? newCity.lat.toFixed(3) + ', ' + newCity.lon.toFixed(3) : 'click the map'" disabled></label>
+        <button class="btn primary" :disabled="!newCity.label || newCity.state.length !== 2 || newCity.lon === null" @click="saveCity">Add to the list</button>
+        <p class="error" v-if="error">{{ error }}</p>
+      </div>
+
+      <!-- ============ city list ============ -->
+      <div v-else-if="!city" class="pad">
+        <h2>Cities <span class="count">{{ cities.length }}</span></h2>
+        <p class="muted" v-if="!dataFound">No data from the cluster yet. Press “Refresh from cluster” and follow the two steps.</p>
+        <div class="summary-line">
+          <span v-for="s in statusList" :key="s.key"><b>{{ countBy(s.key) }}</b> {{ s.label.toLowerCase() }}</span>
+        </div>
+        <table class="list">
+          <thead><tr><th>City</th><th>Status</th><th class="r">Steps</th><th class="r" title="Lidar points per m²: measured on the tiles when available, otherwise an estimate over the whole survey">Lidar pts/m²</th><th class="r">Trees</th></tr></thead>
+          <tbody>
+            <tr v-for="c in sortedCities" :key="c.name" @click="openCity(c.name)">
+              <td><b>{{ c.label }}</b> <span class="muted">{{ c.state }}</span></td>
+              <td><span class="chip" :class="'st-' + c.status"><span class="dot" :class="'st-' + c.status"></span>{{ statusLabel(c.status) }}</span></td>
+              <td class="r">{{ c.steps_done }}/{{ c.steps_total }}</td>
+              <td class="r">{{ c.density_measured ?? c.density_est ?? '–' }}<span class="muted" v-if="!c.density_measured && c.density_est"> est.</span></td>
+              <td class="r">{{ c.trees != null ? fmt(c.trees) : '–' }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="muted small">Every city is processed at 4 lidar points per m². Cities whose lidar reaches 8 get a second run at 8.</p>
+      </div>
+
+      <!-- ============ one city ============ -->
+      <div v-else class="pad">
+        <button class="link" @click="closeCity">← All cities</button>
+        <h2>{{ city.label }} <span class="muted">{{ city.state }}</span>
+          <span class="chip" :class="'st-' + city.status"><span class="dot" :class="'st-' + city.status"></span>{{ statusLabel(city.status) }}</span></h2>
+        <p class="muted" v-if="city.plan">{{ city.plan.area_km2 }} km² · {{ city.plan.n_tiles }} tiles · survey {{ city.plan.survey }}</p>
+        <div class="tabs">
+          <button :class="{ on: tab === 'todo' }" @click="tab = 'todo'">To do <span class="count">{{ city.steps_done }}/{{ city.steps_total }}</span></button>
+          <button :class="{ on: tab === 'results' }" @click="tab = 'results'">Results</button>
+        </div>
+
+        <!-- ---- to do ---- -->
+        <div v-if="tab === 'todo'">
+          <ol class="steps">
+            <li v-for="s in city.steps" :key="s.key" :class="['step', 's-' + s.state, { next: s.next }]">
+              <div class="step-head">
+                <span class="mark" :title="stateLabel(s.state)">{{ stateIcon(s.state) }}</span>
+                <div class="step-text">
+                  <div class="step-title">{{ s.title }} <span class="badge" v-if="s.next">Next</span></div>
+                  <div class="step-detail">{{ s.detail }}</div>
+                </div>
+                <button class="link" v-if="s.command && !s.next" @click="open[s.key] = !open[s.key]">{{ open[s.key] ? 'Hide' : 'Command' }}</button>
+              </div>
+              <div class="cmd" v-if="s.command && (s.next || open[s.key])">
+                <div class="cmd-head"><span>Run on the cluster login node</span>
+                  <button class="btn small" @click="copy(s.command, s.key)">{{ copied === s.key ? 'Copied' : 'Copy' }}</button></div>
+                <pre>{{ s.command }}</pre>
+                <p class="muted small" v-if="s.why">{{ s.why }}</p>
+              </div>
+            </li>
+          </ol>
+          <p class="muted small">After a step has finished on the cluster, press “Refresh from cluster” to update this list.</p>
+        </div>
+
+        <!-- ---- results ---- -->
+        <div v-else>
+          <div v-if="!city.runs.length" class="empty">Nothing has been processed for this city yet.</div>
+          <template v-else>
+            <div class="controls">
+              <label>Run <select v-model="run" @change="loadResults">
+                <option v-for="r in city.runs" :key="r" :value="r">{{ runLabel(r) }}</option></select></label>
+            </div>
+            <div v-if="!results || !results.summary" class="empty">This run has no result tables yet. See “To do”.</div>
+            <template v-else>
+              <div class="tiles">
+                <div class="tile" v-for="t in headline" :key="t.label"><div class="tile-v">{{ t.value }}</div><div class="tile-l">{{ t.label }}</div></div>
+              </div>
+              <p class="muted small">A tree is at least {{ def.min_height_m }} m high with a crown of at least {{ def.min_crown_area_m2 }} m².
+                {{ fmt(results.summary.tiles_processed) }} of {{ fmt(results.summary.tiles_planned) }} tiles processed.</p>
+
+              <div v-if="!results.rows.length" class="empty">No neighbourhood table for this run yet. See “To do”.</div>
+              <template v-else>
+                <h3>Neighbourhoods <span class="count">{{ shown.length }} block groups</span></h3>
+                <div class="controls">
+                  <label>Colour the map by <select v-model="mapVar">
+                    <option v-for="v in treeVars" :key="v" :value="v">{{ varLabel(v) }}</option>
+                    <option v-for="v in placeVars" :key="v" :value="v">{{ varLabel(v) }}</option></select></label>
+                  <label class="check"><input type="checkbox" v-model="wholeOnly"> only block groups fully inside the processed area</label>
+                </div>
+
+                <h3>{{ varLabel(yVar) }} against
+                  <select v-model="xVar" class="inline"><option v-for="v in placeVars" :key="v" :value="v">{{ varLabel(v).toLowerCase() }}</option></select></h3>
+                <div class="chart" ref="chart">
+                  <svg viewBox="0 0 500 320" role="img" :aria-label="varLabel(yVar) + ' against ' + varLabel(xVar)">
+                    <g class="grid">
+                      <line v-for="t in scatter.yTicks" :key="'gy' + t.v" :x1="M.l" :x2="W - M.r" :y1="t.p" :y2="t.p"></line>
+                    </g>
+                    <g class="axis">
+                      <text v-for="t in scatter.yTicks" :key="'y' + t.v" :x="M.l - 8" :y="t.p + 4" text-anchor="end">{{ t.label }}</text>
+                      <text v-for="t in scatter.xTicks" :key="'x' + t.v" :x="t.p" :y="H - M.b + 18" text-anchor="middle">{{ t.label }}</text>
+                      <text class="axis-title" :x="(M.l + W - M.r) / 2" :y="H - 6" text-anchor="middle">{{ varLabel(xVar) }}</text>
+                      <line class="base" :x1="M.l" :x2="W - M.r" :y1="H - M.b" :y2="H - M.b"></line>
+                    </g>
+                    <g>
+                      <circle v-for="p in scatter.points" :key="p.id" :cx="p.x" :cy="p.y" :r="hover && hover.id === p.id ? 7 : 5"
+                              class="pt" :class="{ hot: hover && hover.id === p.id }"></circle>
+                      <circle v-for="p in scatter.points" :key="'h' + p.id" :cx="p.x" :cy="p.y" r="12" class="hit"
+                              @mouseenter="setHover(p)" @mouseleave="setHover(null)"></circle>
+                    </g>
+                  </svg>
+                  <div class="tip" v-if="hover" :style="{ left: hover.x / W * 100 + '%', top: hover.y / H * 100 + '%' }">
+                    <b>Block group {{ hover.id.slice(-7) }}</b>
+                    <div>{{ varLabel(xVar) }}: {{ fmtVar(xVar, hover.row[xVar]) }}</div>
+                    <div>{{ varLabel(yVar) }}: {{ fmtVar(yVar, hover.row[yVar]) }}</div>
+                    <div>Residents: {{ fmt(hover.row.population) }}</div>
+                  </div>
+                </div>
+                <p class="muted small" v-if="scatter.points.length >= 4">
+                  Rank correlation {{ scatter.rho.toFixed(2) }} over {{ scatter.points.length }} block groups.
+                  <span v-if="scatter.points.length < 30">With this few, only values beyond ±{{ scatter.bar.toFixed(2) }} are distinguishable from no relation.</span>
+                  A relation in one city is a description, not a cause.</p>
+                <p class="muted small" v-else>Fewer than four block groups have both values.</p>
+
+                <details>
+                  <summary>Table of block groups</summary>
+                  <div class="table-scroll">
+                    <table class="data">
+                      <thead><tr><th>Block group</th><th class="r" v-for="v in tableVars" :key="v">{{ varShort(v) }}</th></tr></thead>
+                      <tbody><tr v-for="r in shown" :key="r.GEOID" :class="{ hot: hover && hover.id === r.GEOID }">
+                        <td>{{ r.GEOID }}</td><td class="r" v-for="v in tableVars" :key="v">{{ fmtVar(v, r[v]) }}</td></tr></tbody>
+                    </table>
+                  </div>
+                </details>
+              </template>
+            </template>
+          </template>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ============ refresh dialog ============ -->
+  <div class="modal" v-if="showRefresh" @click.self="showRefresh = false">
+    <div class="dialog">
+      <h2>Refresh from the cluster</h2>
+      <p class="muted">The dashboard reads a small copy of the results. Two commands bring it up to date.</p>
+      <h3>1. On the cluster login node</h3>
+      <div class="cmd"><div class="cmd-head"><span>writes the status of every city</span>
+        <button class="btn small" @click="copy(refresh.cluster, 'r1')">{{ copied === 'r1' ? 'Copied' : 'Copy' }}</button></div><pre>{{ refresh.cluster }}</pre></div>
+      <h3>2. In WSL on this PC</h3>
+      <div class="cmd"><div class="cmd-head"><span>copies it here (asks for the one-time code, then the password)</span>
+        <button class="btn small" @click="copy(refresh.pc, 'r2')">{{ copied === 'r2' ? 'Copied' : 'Copy' }}</button></div><pre>{{ refresh.pc }}</pre></div>
+      <div class="dialog-actions">
+        <button class="btn" @click="showRefresh = false">Close</button>
+        <button class="btn primary" @click="reload">I ran both: reload</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/vendor/vue.global.prod.js"></script>
+<script src="/vendor/leaflet.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
