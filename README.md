@@ -73,3 +73,16 @@ outlined by their official limits.
 - The neighbourhood map shows block groups; individual trees are not copied to the PC.
 - Tested with Gainesville's numbers and stand-in block group shapes; the first refresh from the
   real cluster is the real test.
+
+## Problem trees (taller than 70 m, on a structure)
+
+The pipeline leaves these out of the totals. `cluster/problems.py` writes where they are
+(`_dashboard/<city>/<run>/problems.csv`), so the Results tab can show them on the map and list the
+tiles with the most of them, with the commands to get those tiles labelled by the model
+(`--save-las`) for the labelling tool. Copy it to the cluster once:
+
+    scp cluster/problems.py fr_ac1079@uc3.scc.kit.edu:/pfs/work9/workspace/scratch/fr_ac1079-urban_trees/code/urban-tree-detection/src/city/
+
+It runs after `status.py` (the refresh window shows both commands). Standard library only.
+
+Clicking anywhere on the map shows the latitude / longitude of that spot, with a Copy button.

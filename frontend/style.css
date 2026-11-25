@@ -128,3 +128,45 @@ summary { cursor: pointer; color: var(--accent); }
 
 /* the OpenStreetMap background is colourful: mute it so the city dots and the neighbourhood colours stand out */
 .leaflet-tile-pane { filter: grayscale(0.85) opacity(0.75); }
+
+.notice { background: #fff6dc; border: 1px solid #f0d58a; border-radius: 6px; padding: 8px 10px; margin: 8px 0; font-size: 13px; color: #4a3a00; }
+.notice::before { content: "! "; font-weight: 700; }
+
+.checks { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin: 10px 0 4px; }
+.checks > summary { color: var(--text-primary); }
+.check-group { font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 10px 0 4px; }
+.check-row { display: flex; gap: 8px; align-items: flex-start; padding: 3px 0; font-size: 13px; }
+.check-row .mark { width: 18px; height: 18px; font-size: 11px; margin-top: 1px; }
+.c-ok .mark { background: var(--good); border-color: var(--good); color: #fff; }
+.c-warn .mark { background: var(--warning); border-color: var(--warning); color: #3d2c00; font-weight: 700; }
+
+.map-key { position: absolute; right: 12px; top: 12px; z-index: 500; background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 12.5px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.line { width: 22px; height: 0; display: inline-block; border-top: 2.5px solid #0b0b0b; }
+.line.dashed { border-top: 1.5px dashed #52514e; }
+
+/* problem trees (taller than 70 m, on a structure) */
+.pdot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1px solid #fff; box-shadow: 0 0 0 1px #0002; vertical-align: -1px; }
+.pdot.tall { background: #b00020; }
+.pdot.structure { background: #e8710a; }
+.ptiles { border-collapse: collapse; font-size: 12.5px; margin: 6px 0 10px; }
+.ptiles th, .ptiles td { padding: 3px 10px 3px 0; text-align: left; }
+.ptiles th { color: var(--text-secondary, #666); font-weight: 500; }
+/* lat/lon popup on map click */
+.latlon-pop { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.latlon-pop code { font: 12.5px ui-monospace, SFMono-Regular, Consolas, monospace; }
+
+/* optional steps (the second density run) */
+.step.optional { border-style: dashed; }
+.step.optional:not(.s-done) .step-title { font-weight: 500; color: var(--text-secondary, #666); }
+.badge.opt { background: transparent; color: var(--text-secondary, #666); border: 1px solid var(--border); }
+
+/* map button: lat/lon on click */
+.latlon-btn { position: absolute; top: 10px; right: 10px; z-index: 1000; box-shadow: 0 1px 4px #0003; }
+.latlon-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* top tabs: Cities | Datasets */
+.views { display: flex; gap: 4px; margin-left: 24px; margin-right: auto; }
+.view-tab { font: inherit; padding: 5px 12px; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--text-secondary); cursor: pointer; }
+.view-tab:hover { background: var(--surface-2); }
+.view-tab.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.registry-frame { flex: 1; width: 100%; border: 0; min-height: 0; background: #f6f7f8; }

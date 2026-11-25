@@ -14,8 +14,12 @@ import os
 import re
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+import urllib.error
+import urllib.request
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+from starlette.concurrency import run_in_threadpool
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -26,7 +30,7 @@ CONFIG = json.loads((ROOT / "config.json").read_text())
 CITY_FIELDS = ["name", "label", "state", "place", "lon", "lat", "density_est", "survey"]
 
 MAIN_DENSITY = 4          # every city: the comparable sample
-SECOND_DENSITY = 8        # cities whose lidar reaches it: robustness run
+SECOND_DENSITY = 8        # optional robustness run, offered for every city
 CHUNK = 50                # tiles per cluster job
 
 app = FastAPI(title="City dashboard")
@@ -57,6 +61,12 @@ def synced_density() -> dict[str, dict]:
     return best
 
 
+def synced_outlines() -> set[str]:
+    """Cities whose official outline was downloaded on the cluster (also before they have a plan)."""
+    p = DATA / "outlines.json"
+    return set(json.loads(p.read_text())) if p.exists() else set()
+
+
 def read_status(name: str) -> dict | None:
     p = DATA / name / "status.json"
     return json.loads(p.read_text()) if p.exists() else None
@@ -73,11 +83,15 @@ def num(x: str):
 
 
 # ----------------------------------------------------------------------------- steps
+FULL_TAG = "full"          # all points, no thinning: the best detection, for comparisons within a city
+
+
 def wanted_runs(density: float | None) -> list[tuple[str, int]]:
-    runs = [(f"d{MAIN_DENSITY}", MAIN_DENSITY)]
-    if density is not None and density >= SECOND_DENSITY:
-        runs.append((f"d{SECOND_DENSITY}", SECOND_DENSITY))
-    return runs
+    """Runs offered for every city: 4 points per m² (main run, comparable across cities), all points
+    (full density, best detection within a city) and 8 points per m². One complete run (processing +
+    result tables) is enough for a city to count as done; the other runs are optional (see build_steps).
+    Density 0 = no thinning."""
+    return [(f"d{MAIN_DENSITY}", MAIN_DENSITY), (FULL_TAG, 0), (f"d{SECOND_DENSITY}", SECOND_DENSITY)]
 
 
 def build_steps(city: dict, st: dict | None) -> list[dict]:
@@ -92,8 +106,9 @@ def build_steps(city: dict, st: dict | None) -> list[dict]:
     density = measured or (plan or {}).get("survey_density_est") or city.get("density_est")
     steps = []
 
-    def add(key, title, state, detail, where, command, why=""):
-        steps.append(dict(key=key, title=title, state=state, detail=detail, where=where, command=command, why=why))
+    def add(key, title, state, detail, where, command, why="", run=None):
+        steps.append(dict(key=key, title=title, state=state, detail=detail, where=where, command=command, why=why,
+                          run=run, optional=False))
 
     # 1 lidar available?
     if plan:
@@ -110,12 +125,15 @@ def build_steps(city: dict, st: dict | None) -> list[dict]:
     # 2 outline
     outline_cmd = (f"{cd}\nconda activate pdal\n"
                    f"python src/city/city_limits.py --name {name} --place \"{city.get('place') or city['label']}\" --state {city['state']}")
-    if st and st.get("outline"):
+    if (st and st.get("outline")) or (not plan and name in synced_outlines()):
         add("outline", "City outline", "done", "Official city limits", "cluster", "")
     elif plan:
-        add("outline", "City outline", "warn", "Planned from a box, not the city limits: neighbourhoods at the edge are cut",
-            "cluster", outline_cmd + f"\npython src/city/plan.py --name {name} --polygon data/cities/outlines/{name}.geojson",
-            "Optional for a pilot. Re-planning with the outline adds tiles; tiles already downloaded and processed are kept only if the tile grid is unchanged.")
+        # No command here on purpose: re-planning renumbers the tiles and would mismatch
+        # everything already downloaded and processed in this city's folder.
+        add("outline", "City outline", "warn",
+            "Planned from a box, not the city limits, so neighbourhoods at the edge are cut. "
+            "To process the official city limits, add it as a new city; do not re-plan this one.",
+            "cluster", "")
     else:
         add("outline", "City outline", "todo", "Download the official city limits", "cluster", outline_cmd,
             "The outline decides which tiles are downloaded.")
@@ -130,9 +148,9 @@ def build_steps(city: dict, st: dict | None) -> list[dict]:
     # 4 download
     got, planned = tiles["downloaded"] + tiles["empty"], tiles["planned"]
     fetch_cmd = (f"{cd}\nconda activate urban-trees\n"
-                 f"nohup python src/city/fetch.py --city-dir {city_dir} --tiles all \\\n"
+                 f"nohup python src/city/fetch.py --city-dir {city_dir} --tiles all --workers 4 \\\n"
                  f"  --pdal {c['pdal']} > fetch_{name}.log 2>&1 &\n"
-                 f"# progress:\nls {city_dir}/tiles/*.laz | wc -l")
+                 f"# progress:\ntail -2 fetch_{name}.log")
     if plan and got >= planned:
         add("download", "Download the lidar", "done",
             f"{tiles['downloaded']} tiles" + (f" ({tiles['empty']} empty)" if tiles["empty"] else ""), "cluster", "")
@@ -153,44 +171,98 @@ def build_steps(city: dict, st: dict | None) -> list[dict]:
             "Population only; income and housing are missing" if census else "Block groups, population, income, renters, building age",
             "cluster", census_cmd if plan else "", "Reads your Census key from the .env file in the repo folder on the cluster (a line KEY=...). Independent of the lidar steps.")
 
+    # greenness from NAIP aerial images (independent of the density runs)
+    naip = st.get("naip") if st else None
+    naip_cmd = (f"{cd}\nconda activate pdal\n"
+                f"python src/city/naip.py --city-dir {city_dir} --workers 4")
+    expected = tiles["downloaded"]
+    if naip and expected and naip["tiles"] >= expected:
+        add("naip", "Greenness (NAIP)", "done", f"NDVI for {naip['tiles']} tiles, NAIP {naip.get('year') or ''}".strip(), "cluster", "")
+    else:
+        add("naip", "Greenness (NAIP)", "partial" if naip and naip["tiles"] else "todo",
+            f"NDVI for {naip['tiles']} of {expected} tiles" if naip and naip["tiles"] else
+            "Green cover from aerial images, and a check for missed trees",
+            "cluster", naip_cmd if plan and tiles["downloaded"] else "",
+            "Login node, needs internet. Picks the NAIP year closest to the lidar. Run the result tables again afterwards.")
+
     # 6.. per density: process, then tables
     n_jobs = max(math.ceil(planned / CHUNK), 1)
     for tag, dens in wanted_runs(density):
         r = runs.get(tag)
-        label = f"{dens} points per m²" + (" (main run)" if dens == MAIN_DENSITY else " (second run)")
+        if dens == 0:
+            label = "all points" + (f" (about {density:g} per m²)" if density else "") + " (full density, optional)"
+        else:
+            label = f"{dens} points per m²" + (" (main run)" if dens == MAIN_DENSITY else " (optional)")
+        sparse = (dens > MAIN_DENSITY and density is not None and density < dens)
+        sparse_note = (f" This survey has only about {density:g} points per m²: at {dens} nothing is thinned, so this run "
+                       f"uses all points." if sparse else "")
         done_tiles = (r["tiles_processed"] + r["tiles_skipped"]) if r else 0
-        process_cmd = (f"{cd}\nsbatch --time=01:30:00 --array=0-{n_jobs - 1} "
+        # job name shown by squeue: <city>-<run>-<step>, e.g. san_diego-d4-process
+        process_cmd = (f"{cd}\nsbatch --job-name={name}-{tag}-process --time=01:30:00 --array=0-{n_jobs - 1} "
                        f"--export=ALL,CITY={name},TARGET_DENSITY={dens},TAG={tag} hpc/city_process.slurm\n"
-                       f"# watch the queue:\nsqueue --me")
+                       f"# watch the queue (full job names):\nsqueue --me -o \"%.18i %.32j %.2t %.10M %R\"")
         ready = bool(plan) and tiles["downloaded"] > 0
-        if r and tiles["downloaded"] and done_tiles >= tiles["downloaded"] and got >= planned:
-            add(f"process_{tag}", f"Process at {label}", "done", f"{r['tiles_processed']} tiles processed", "cluster", "")
+        # runs processed before 2026-11-16 have no canopy maps (needed for canopy cover per neighbourhood)
+        no_canopy = bool(r and r.get("canopy_maps") is not None and r["canopy_maps"] < r["tiles_processed"])
+        if no_canopy and ready:
+            add(f"process_{tag}", f"Process at {label}", "partial",
+                f"{r['tiles_processed'] - r['canopy_maps']} of {r['tiles_processed']} tiles were processed before the canopy map existed: process again",
+                "cluster", process_cmd.replace(f"TAG={tag} ", f"TAG={tag},REDO=1 "),
+                "REDO=1 processes the tiles again and replaces their results. Needed once, for canopy cover per neighbourhood.", run=tag)
+        elif r and tiles["downloaded"] and done_tiles >= tiles["downloaded"] and got >= planned:
+            add(f"process_{tag}", f"Process at {label}", "done", f"{r['tiles_processed']} tiles processed", "cluster", "", run=tag)
         else:
             add(f"process_{tag}", f"Process at {label}", "partial" if done_tiles else "todo",
                 f"{done_tiles} of {tiles['downloaded']} downloaded tiles" if ready else "After the download",
                 "cluster", process_cmd if ready else "",
-                f"{n_jobs} GPU job{'s' if n_jobs > 1 else ''} of up to {CHUNK} tiles. Finished tiles are skipped, so it is safe to submit again.")
+                f"{n_jobs} GPU job{'s' if n_jobs > 1 else ''} of up to {CHUNK} tiles. Finished tiles are skipped, so it is safe to submit again."
+                + sparse_note
+                + (" All points, no thinning: the best detection, for comparisons within the city. Cities have "
+                   "different densities, so compare cities with the 4 points per m² run." if dens == 0 else ""), run=tag)
 
-        tables_ok = bool(r and r.get("combined") and r.get("neighbourhoods") is not None and not r.get("neighbourhoods_stale"))
+        has_def = bool(r and (r.get("summary") or {}).get("tree_definition"))
+        has_canopy = bool(r and r.get("neighbourhoods_has_canopy", True))
+        needs_green = bool(naip and expected and naip["tiles"] >= expected and r and r.get("neighbourhoods") is not None
+                           and not r.get("neighbourhoods_has_green", False))
+        tables_ok = bool(r and r.get("combined") and r.get("neighbourhoods") is not None
+                         and not r.get("neighbourhoods_stale") and has_def and has_canopy and not no_canopy
+                         and not needs_green)
         tables_cmd = (f"{cd}\nconda activate pdal\n"
                       f"python src/city/combine.py --city-dir {city_dir} --tag {tag} \\\n"
                       f"  --polygons {city_dir}/block_groups.geojson | tail -4")
         if tables_ok:
-            add(f"tables_{tag}", f"Result tables at {dens} points per m²", "done",
-                f"{r['summary'].get('trees', 0):,} trees, {r['neighbourhoods']} block groups", "cluster", "")
+            add(f"tables_{tag}", f"Result tables, {label.split(' (')[0]}", "done",
+                f"{r['summary'].get('trees', 0):,} trees, {r['neighbourhoods']} block groups", "cluster", "", run=tag)
         else:
             some = bool(r and (r.get("summary") or r.get("neighbourhoods") is not None))
-            if r and r.get("combined") and r.get("neighbourhoods") is None:
+            if r and r.get("combined") and r.get("neighbourhoods") is not None and not has_def:
+                detail = "Made before the tree definition was set: every detected object is counted. Run again."
+            elif r and r.get("neighbourhoods") is not None and (not has_canopy or no_canopy):
+                detail = "No canopy cover per neighbourhood yet: " + ("process the tiles again first" if no_canopy else "run again")
+            elif needs_green:
+                detail = "Greenness is ready but not in the tables yet: run again"
+            elif r and r.get("combined") and r.get("neighbourhoods") is None:
                 detail = "Tree table and summary exist; the neighbourhood table is missing"
             elif some:
                 detail = "Out of date: tiles were processed after the last tables"
             else:
                 detail = "Tree table, summary and neighbourhood table"
-            add(f"tables_{tag}", f"Result tables at {dens} points per m²", "partial" if some else "todo", detail,
-                "cluster", tables_cmd if (r and census) else "", "Needs the processing and the census data.")
+            add(f"tables_{tag}", f"Result tables, {label.split(' (')[0]}", "partial" if some else "todo", detail,
+                "cluster", tables_cmd if (r and census) else "", "Needs the processing and the census data.", run=tag)
 
-    # which step is next: the first unfinished one that has a command
-    nxt = next((s for s in steps if s["state"] in ("todo", "partial") and s["command"]), None)
+    # One complete run is enough: the run that counts is the first finished one (main run first),
+    # else the main run. The steps of every other run are optional: shown with their state and
+    # command, but not needed for "done", not in the step count and never "Next".
+    def finished(tag):
+        rs = [s for s in steps if s["run"] == tag]
+        return bool(rs) and all(s["state"] in ("done", "warn") for s in rs)
+    tags = [t for t, _ in wanted_runs(density)]
+    counting = next((t for t in tags if finished(t)), tags[0])
+    for s in steps:
+        s["optional"] = s["run"] is not None and s["run"] != counting
+
+    # which step is next: the first unfinished required one that has a command
+    nxt = next((s for s in steps if s["state"] in ("todo", "partial") and s["command"] and not s["optional"]), None)
     for s in steps:
         s["next"] = s is nxt
     return steps
@@ -199,7 +271,7 @@ def build_steps(city: dict, st: dict | None) -> list[dict]:
 def overall(city: dict, st: dict | None, steps: list[dict]) -> str:
     if st is None:
         return "no_lidar" if (city.get("density_est") is None and city.get("survey") == "none") else "not_started"
-    return "done" if all(s["state"] in ("done", "warn") for s in steps) else "in_progress"
+    return "done" if all(s["state"] in ("done", "warn") for s in steps if not s.get("optional")) else "in_progress"
 
 
 def city_payload(city: dict, with_steps: bool = True) -> dict:
@@ -208,7 +280,8 @@ def city_payload(city: dict, with_steps: bool = True) -> dict:
     measured = next((r["density_measured"] for r in (st or {}).get("runs", {}).values() if r.get("density_measured")), None)
     main = (st or {}).get("runs", {}).get(f"d{MAIN_DENSITY}") or {}
     out = dict(city, status=overall(city, st, steps), density_measured=measured,
-               steps_done=sum(s["state"] in ("done", "warn") for s in steps), steps_total=len(steps),
+               steps_done=sum(s["state"] in ("done", "warn") for s in steps if not s["optional"]),
+               steps_total=sum(not s["optional"] for s in steps),
                next_step=next((s["title"] for s in steps if s["next"]), None),
                trees=(main.get("summary") or {}).get("trees"),
                updated=(st or {}).get("generated"),
@@ -260,7 +333,85 @@ def api_results(name: str, run: str):
                 rows.append({k: (v if k == "GEOID" else num(v)) for k, v in r.items()})
     bg = DATA / name / "block_groups.geojson"
     shapes = json.loads(bg.read_text()) if bg.exists() else None
-    return dict(summary=summary, rows=rows, shapes=shapes)
+    checks = json.loads((d / "checks.json").read_text()) if (d / "checks.json").exists() else None
+    return dict(summary=summary, rows=rows, shapes=shapes, checks=checks, layers=run_layers(name, run))
+
+
+@app.get("/api/city/{name}/problems")
+def api_problems(name: str, run: str, top: int = 15):
+    """Trees the pipeline leaves out of the totals, with their position (cluster script
+    src/city/problems.py -> problems.csv): objects taller than 70 m and trees on a structure.
+    Also the tiles with the most of them and the commands to get such a tile labelled by the
+    model (SAVE_LAS=1) for the labelling tool."""
+    find_city(name)
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+", run):
+        raise HTTPException(400, "bad run")
+    d = DATA / name / run
+    f = d / "problems.csv"
+    if not f.exists():
+        return {"available": False}
+    trees = []
+    with open(f, newline="") as fh:
+        for r in csv.DictReader(fh):
+            lat, lon = num(r.get("lat", "")), num(r.get("lon", ""))
+            if lat is None or lon is None:
+                continue
+            trees.append({"reason": r["reason"], "lat": lat, "lon": lon, "height_m": num(r.get("height_m", "")),
+                          "crown_area_m2": num(r.get("crown_area_m2", "")), "tile": r.get("tile_id", "")})
+    tiles = {}
+    for t in trees:
+        if not t["tile"]:
+            continue
+        e = tiles.setdefault(t["tile"], {"tile": t["tile"], "tall": 0, "structure": 0, "lat": 0.0, "lon": 0.0, "n": 0})
+        e[t["reason"]] += 1
+        e["lat"] += t["lat"]; e["lon"] += t["lon"]; e["n"] += 1
+    for e in tiles.values():
+        e["lat"] /= e["n"]; e["lon"] /= e["n"]
+    # tall objects first (rare and always worth a look), then most trees on structures
+    ranked = sorted(tiles.values(), key=lambda e: (-e["tall"], -e["structure"]))[:top]
+
+    summary = json.loads((d / "summary.json").read_text()) if (d / "summary.json").exists() else {}
+    dens = summary.get("target_density")
+    dens = int(dens) if isinstance(dens, (int, float)) and float(dens).is_integer() else (dens or 0)
+    c = CONFIG["cluster"]
+    return {"available": True, "trees": trees,
+            "counts": {"tall": sum(t["reason"] == "tall" for t in trees),
+                       "structure": sum(t["reason"] == "structure" for t in trees)},
+            "tiles": ranked, "density": dens,
+            "repo": c["repo"], "data": c["data"], "pdal": c.get("pdal", "pdal"), "login": f"{c['user']}@{c['host']}"}
+
+
+def run_layers(name: str, run: str) -> dict | None:
+    """Map pictures from layers.py for this city and run: NDVI and our canopy against NDVI."""
+    f = DATA / name / "layers" / "layers.json"
+    if not f.exists():
+        return None
+    info = json.loads(f.read_text())
+    out = {}
+    for key, l in info.get("layers", {}).items():
+        if key == "ndvi" or l.get("run") == run:
+            kind = "ndvi" if key == "ndvi" else "compare" if key.endswith("_compare") else "canopy"
+            out[kind] = dict(label=l["label"], url=f"/api/city/{name}/layer/{l['file']}?v={int((f.parent / l['file']).stat().st_mtime)}")
+    return dict(bounds=info["bounds"], cell_m=info.get("cell_m"), green_ndvi=info.get("green_ndvi"), items=out) if out else None
+
+
+@app.get("/api/city/{name}/layer/{file}")
+def api_layer(name: str, file: str):
+    find_city(name)
+    if not re.fullmatch(r"[A-Za-z0-9_-]+\.png", file):
+        raise HTTPException(400, "bad file name")
+    p = DATA / name / "layers" / file
+    if not p.exists():
+        raise HTTPException(404)
+    return FileResponse(p, media_type="image/png")
+
+
+@app.get("/api/city/{name}/outline")
+def api_outline(name: str):
+    """The city's official limits (Census place outline), or null when not downloaded yet."""
+    find_city(name)
+    f = DATA / "_outlines" / f"{name}.geojson"
+    return json.loads(f.read_text()) if f.exists() else None
 
 
 class NewCity(BaseModel):
@@ -298,21 +449,63 @@ def refresh_commands() -> dict:
     if m:
         local = f"/mnt/{m.group(1).lower()}/" + m.group(2).replace("\\", "/")
     return dict(
-        cluster=f"cd {c['repo']}\npython src/city/status.py",
+        cluster=f"cd {c['repo']}\npython src/city/status.py\npython src/city/problems.py",
         pc=f"mkdir -p {local}\nrsync -av --delete \\\n  {c['user']}@{c['host']}:{c['data']}/cities/_dashboard/ \\\n  {local}/")
+
+
+# ─── Dataset registry (the "Datasets" tab) ────────────────────────────────────
+# The registry is its own small service (folder registry/, compose service "registry"). These routes pass
+# /registry/... through to it, so its page, API and saving all work from this app's address.
+REGISTRY_URL = os.environ.get("REGISTRY_URL", "http://registry:8080")
+
+
+def _registry_call(url: str, method: str, body: bytes | None, headers: dict):
+    req = urllib.request.Request(url, data=body, method=method, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return r.status, r.read(), dict(r.headers)
+    except urllib.error.HTTPError as e:                      # 400 / 404 / 409 come back as they are
+        return e.code, e.read(), dict(e.headers)
+
+
+@app.get("/registry")
+def registry_root():
+    return RedirectResponse("/registry/")
+
+
+@app.api_route("/registry/{path:path}", methods=["GET", "PUT"])
+async def registry_proxy(request: Request, path: str):
+    url = f"{REGISTRY_URL}/registry/{path}" + (f"?{request.url.query}" if request.url.query else "")
+    fwd = {k: v for k, v in request.headers.items() if k.lower() in ("content-type", "if-match")}
+    body = await request.body() if request.method == "PUT" else None
+    try:
+        code, data, h = await run_in_threadpool(_registry_call, url, request.method, body, fwd)
+    except OSError:
+        return Response("The dataset registry is not running. Start it with: docker compose up -d registry",
+                        status_code=503, media_type="text/plain")
+    keep = {k: v for k, v in h.items() if k.lower() in ("etag", "content-disposition", "cache-control")}
+    return Response(data, status_code=code, media_type=h.get("Content-Type"), headers=keep)
 
 
 app.mount("/vendor", StaticFiles(directory=ROOT / "frontend" / "vendor"), name="vendor")
 
 
+NO_CACHE = {"Cache-Control": "no-cache, no-store, must-revalidate"}
+
+
 @app.get("/")
 def index():
-    return FileResponse(ROOT / "frontend" / "index.html")
+    # The page asks for app.js and style.css with their modification time in the address,
+    # so the browser can never show an old copy after the files change.
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    for f in ("app.js", "style.css"):
+        html = html.replace(f'"/{f}"', f'"/{f}?v={int((ROOT / "frontend" / f).stat().st_mtime)}"')
+    return HTMLResponse(html, headers=NO_CACHE)
 
 
 @app.get("/{path}")
 def static(path: str):
     p = ROOT / "frontend" / path
     if path in ("app.js", "style.css") and p.exists():
-        return FileResponse(p)
+        return FileResponse(p, headers=NO_CACHE)
     raise HTTPException(404)

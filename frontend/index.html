@@ -11,23 +11,39 @@
 <div id="app" class="viz-root" v-cloak>
   <header class="top">
     <div class="brand"><span class="logo">▲</span> City dashboard <span class="sub">urban trees from public lidar</span></div>
-    <div class="top-actions">
+    <nav class="views" aria-label="Views">
+      <button class="view-tab" :class="{ active: view === 'cities' }" @click="setView('cities')">Cities</button>
+      <button class="view-tab" :class="{ active: view === 'datasets' }" @click="setView('datasets')">Datasets</button>
+    </nav>
+    <div class="top-actions" v-show="view === 'cities'">
       <span v-if="lastUpdate" class="muted">Cluster data from {{ lastUpdate }}</span>
       <button class="btn" @click="showRefresh = true">Refresh from cluster</button>
       <button class="btn" :class="{ active: adding }" @click="toggleAdd">{{ adding ? 'Cancel' : 'Add city' }}</button>
     </div>
   </header>
 
-  <main>
+  <main v-show="view === 'cities'">
     <section class="map-wrap">
       <div id="map"></div>
+      <button class="btn small latlon-btn" :class="{ active: latlonOn }" @click="latlonOn = !latlonOn"
+              :title="latlonOn ? 'On: click the map to get the latitude / longitude of a spot. Click to switch off.' : 'Switch on, then click the map to get the latitude / longitude of a spot'">
+        📍 Lat/lon {{ latlonOn ? 'on' : 'off' }}</button>
       <div class="map-legend" v-if="!city">
         <div v-for="s in statusList" :key="s.key" class="leg-row"><span class="dot" :class="'st-' + s.key"></span>{{ s.label }}</div>
       </div>
-      <div class="map-legend" v-if="city && tab === 'results' && legend.length">
+      <div class="map-legend" v-if="city && tab === 'results' && pictureLegend">
+        <div class="leg-title">{{ pictureLegend.title }}</div>
+        <div v-for="l in pictureLegend.rows" :key="l.label" class="leg-row"><span class="swatch" :style="{ background: l.color }"></span>{{ l.label }}</div>
+        <div class="muted small">Cells of {{ results.layers.cell_m }} m, for looking only; the numbers use 1 m.</div>
+      </div>
+      <div class="map-legend" v-else-if="city && tab === 'results' && legend.length">
         <div class="leg-title">{{ varLabel(mapVar) }}</div>
         <div v-for="l in legend" :key="l.label" class="leg-row"><span class="swatch" :style="{ background: l.color }"></span>{{ l.label }}</div>
         <div class="leg-row"><span class="swatch none"></span>no value</div>
+      </div>
+      <div class="map-key" v-if="city">
+        <div class="leg-row"><span class="line solid"></span>Official city limits<span class="muted" v-if="!hasLimits">&nbsp;(not downloaded yet)</span></div>
+        <div class="leg-row" v-if="city.plan"><span class="line dashed"></span>Planned area</div>
       </div>
       <div class="map-hint" v-if="adding">Click the map at the city centre</div>
     </section>
@@ -39,6 +55,8 @@
         <p class="muted">Click the map to set the position, then fill in the name as the Census writes it.</p>
         <label>City name <input v-model="newCity.label" placeholder="e.g. Tampa"></label>
         <label>State (two letters) <input v-model="newCity.state" maxlength="2" placeholder="FL"></label>
+        <label>Census name <input v-model="newCity.place" :placeholder="newCity.label || 'e.g. Gainesville'">
+          <span class="muted small">The city's name as the Census writes it, without "City". Leave empty if it is the same as the name above.</span></label>
         <label>Position <input :value="newCity.lon !== null ? newCity.lat.toFixed(3) + ', ' + newCity.lon.toFixed(3) : 'click the map'" disabled></label>
         <button class="btn primary" :disabled="!newCity.label || newCity.state.length !== 2 || newCity.lon === null" @click="saveCity">Add to the list</button>
         <p class="error" v-if="error">{{ error }}</p>
@@ -71,7 +89,7 @@
         <button class="link" @click="closeCity">← All cities</button>
         <h2>{{ city.label }} <span class="muted">{{ city.state }}</span>
           <span class="chip" :class="'st-' + city.status"><span class="dot" :class="'st-' + city.status"></span>{{ statusLabel(city.status) }}</span></h2>
-        <p class="muted" v-if="city.plan">{{ city.plan.area_km2 }} km² · {{ city.plan.n_tiles }} tiles · survey {{ city.plan.survey }}</p>
+        <p class="muted" v-if="city.plan">{{ city.plan.area_km2 }} km² · {{ city.plan.n_tiles }} tiles · survey {{ city.plan.survey }}<template v-if="densityText"> · {{ densityText }}</template></p>
         <div class="tabs">
           <button :class="{ on: tab === 'todo' }" @click="tab = 'todo'">To do <span class="count">{{ city.steps_done }}/{{ city.steps_total }}</span></button>
           <button :class="{ on: tab === 'results' }" @click="tab = 'results'">Results</button>
@@ -80,11 +98,12 @@
         <!-- ---- to do ---- -->
         <div v-if="tab === 'todo'">
           <ol class="steps">
-            <li v-for="s in city.steps" :key="s.key" :class="['step', 's-' + s.state, { next: s.next }]">
+            <li v-for="s in city.steps" :key="s.key" :class="['step', 's-' + s.state, { next: s.next, optional: s.optional }]">
               <div class="step-head">
                 <span class="mark" :title="stateLabel(s.state)">{{ stateIcon(s.state) }}</span>
                 <div class="step-text">
-                  <div class="step-title">{{ s.title }} <span class="badge" v-if="s.next">Next</span></div>
+                  <div class="step-title">{{ s.title }} <span class="badge" v-if="s.next">Next</span>
+                    <span class="badge opt" v-if="s.optional" title="Not needed for the city to count as done: one finished run (4 or 8 points per m²) is enough">Optional</span></div>
                   <div class="step-detail">{{ s.detail }}</div>
                 </div>
                 <button class="link" v-if="s.command && !s.next" @click="open[s.key] = !open[s.key]">{{ open[s.key] ? 'Hide' : 'Command' }}</button>
@@ -97,6 +116,7 @@
               </div>
             </li>
           </ol>
+          <p class="muted small">One finished run, at 4 or at 8 points per m², is enough for the city to count as done; the other run's steps are optional.</p>
           <p class="muted small">After a step has finished on the cluster, press “Refresh from cluster” to update this list.</p>
         </div>
 
@@ -106,28 +126,97 @@
           <template v-else>
             <div class="controls">
               <label>Run <select v-model="run" @change="loadResults">
-                <option v-for="r in city.runs" :key="r" :value="r">{{ runLabel(r) }}</option></select></label>
+                <option v-for="r in visibleRuns" :key="r" :value="r">{{ runLabel(r) }}</option></select></label>
+              <label class="check" v-if="testRuns.length"><input type="checkbox" v-model="showTests"> show test runs ({{ testRuns.length }})</label>
             </div>
             <div v-if="!results || !results.summary" class="empty">This run has no result tables yet. See “To do”.</div>
             <template v-else>
               <div class="tiles">
                 <div class="tile" v-for="t in headline" :key="t.label"><div class="tile-v">{{ t.value }}</div><div class="tile-l">{{ t.label }}</div></div>
               </div>
-              <p class="muted small">A tree is at least {{ def.min_height_m }} m high with a crown of at least {{ def.min_crown_area_m2 }} m².
-                {{ fmt(results.summary.tiles_processed) }} of {{ fmt(results.summary.tiles_planned) }} tiles processed.</p>
+              <p class="muted small" v-if="runDensityText">Point density of this run: {{ runDensityText }}.</p>
+              <p class="notice" v-if="isTest">Test run, not a result: it was made to compare settings and may cover only part of the city.</p>
+              <p class="notice" v-if="!def">These tables were made before the tree definition was set, so every detected object is counted as a tree.
+                Run the result tables for this run again (see “To do”).</p>
+              <p class="notice" v-if="results.summary.tiles_processed < results.summary.tiles_planned">Only
+                {{ fmt(results.summary.tiles_processed) }} of {{ fmt(results.summary.tiles_planned) }} tiles are processed: the numbers cover part of the city.</p>
+              <p class="muted small"><span v-if="def">A tree is at least {{ def.min_height_m }} m high<span v-if="def.max_height_m"> and at most {{ def.max_height_m }} m</span>, with a crown of at least {{ def.min_crown_area_m2 }} m².</span>
+                {{ fmt(results.summary.tiles_processed) }} of {{ fmt(results.summary.tiles_planned) }} tiles processed<span v-if="results.summary.objects_detected">,
+                {{ fmt(results.summary.objects_detected - results.summary.trees) }} detected objects were too small to count as trees</span>.</p>
+
+              <details class="checks" v-if="results.checks" :open="warnCount > 0">
+                <summary>Checks: <b v-if="warnCount">{{ warnCount }} to look at</b><span v-else>all passed</span>
+                  <span class="muted">&nbsp;({{ results.checks.length }} checks)</span></summary>
+                <template v-for="g in checkGroups" :key="g.name">
+                  <div class="check-group">{{ g.name }}</div>
+                  <div v-for="c in g.items" :key="c.name" :class="['check-row', 'c-' + c.status]">
+                    <span class="mark" :title="{ ok: 'Passes', warn: 'Look at this', info: 'Information' }[c.status]">{{ { ok: '✓', warn: '!', info: '' }[c.status] }}</span>
+                    <div><div>{{ c.name }}: <b>{{ c.value ?? '–' }}</b> <span class="muted">expected {{ c.expected }}</span></div>
+                      <div class="muted small" v-if="c.note && c.status !== 'ok'">{{ c.note }}</div></div>
+                  </div>
+                </template>
+              </details>
+              <p class="muted small" v-else>No automatic checks for this run yet: run its result tables again.</p>
+
+              <!-- Problem trees: left out of the totals by the pipeline; shown so they can be checked by eye -->
+              <details class="checks problems" v-if="problems" :open="problems.available && problems.counts.tall > 0">
+                <summary>Problem trees:
+                  <template v-if="problems.available"><b>{{ fmt(problems.counts.tall) }}</b> taller than 70 m ·
+                    <b>{{ fmt(problems.counts.structure) }}</b> on a structure</template>
+                  <span v-else class="muted">no list for this run yet</span></summary>
+                <p class="muted small" v-if="!problems.available">On the cluster, after <code>status.py</code>:
+                  <code>python src/city/problems.py --city {{ city.name }}</code>, then refresh. (The refresh window shows both commands.)</p>
+                <template v-else>
+                  <p class="muted small">Not counted as trees. Usually roof clutter on tall buildings, but each one may also be a model error:
+                    zoom in, then look at the worst tiles in the labelling tool.</p>
+                  <div class="controls">
+                    <label class="check"><input type="checkbox" v-model="showProb.tall"> <span class="pdot tall"></span> taller than 70 m</label>
+                    <label class="check"><input type="checkbox" v-model="showProb.structure"> <span class="pdot structure"></span> on a structure</label>
+                  </div>
+                  <table class="ptiles" v-if="problems.tiles.length">
+                    <thead><tr><th></th><th>Tile</th><th>&gt; 70 m</th><th>On structure</th><th></th></tr></thead>
+                    <tbody><tr v-for="t in problems.tiles" :key="t.tile">
+                      <td><input type="checkbox" :checked="pickTiles.includes(t.tile)" @change="toggleTile(t.tile)" title="Include in the commands below"></td>
+                      <td><code>{{ t.tile }}</code></td><td>{{ t.tall || '' }}</td><td>{{ t.structure || '' }}</td>
+                      <td><button class="btn small" @click="zoomTile(t)">Show</button></td></tr></tbody>
+                  </table>
+                  <template v-if="tileCommands">
+                    <p class="small">Get the ticked tiles labelled by the model, to open them in the labelling tool:</p>
+                    <div class="cmd"><div class="cmd-head"><span>1. on the cluster login node (downloads the tiles again if they were cleaned up)</span>
+                      <button class="btn small" @click="copy(tileCommands.cluster, 'pt1')">{{ copied === 'pt1' ? 'Copied' : 'Copy' }}</button></div>
+                      <pre>{{ tileCommands.cluster }}</pre></div>
+                    <div class="cmd"><div class="cmd-head"><span>2. when the job is done, in WSL on this PC</span>
+                      <button class="btn small" @click="copy(tileCommands.pc, 'pt2')">{{ copied === 'pt2' ? 'Copied' : 'Copy' }}</button></div>
+                      <pre>{{ tileCommands.pc }}</pre></div>
+                    <p class="muted small">The files carry the model's labels (trees from 201 on); load them in the labelling tool and open a patch.</p>
+                  </template>
+                </template>
+              </details>
 
               <div v-if="!results.rows.length" class="empty">No neighbourhood table for this run yet. See “To do”.</div>
               <template v-else>
+                <p class="notice" v-if="!hasVar('canopy_cover')">This run has no canopy cover per neighbourhood yet (see “To do”).
+                  Tree counts are the less reliable measure: on the labelled test patches they are off by −30% to +15% depending on the region.</p>
                 <h3>Neighbourhoods <span class="count">{{ shown.length }} block groups</span></h3>
                 <div class="controls">
                   <label>Colour the map by <select v-model="mapVar">
                     <option v-for="v in treeVars" :key="v" :value="v">{{ varLabel(v) }}</option>
                     <option v-for="v in placeVars" :key="v" :value="v">{{ varLabel(v) }}</option></select></label>
+                  <label>Picture on the map <select v-model="picture">
+                    <option value="none">none (colour the block groups)</option>
+                    <option v-if="pictures.ndvi" value="ndvi">NDVI (NAIP)</option>
+                    <option v-if="pictures.compare" value="compare">Our canopy vs NDVI</option>
+                    <option v-if="pictures.canopy" value="canopy">Our canopy</option></select></label>
                   <label class="check"><input type="checkbox" v-model="wholeOnly"> only block groups fully inside the processed area</label>
                 </div>
+                <p class="muted small" v-if="!results.layers">No map pictures yet. On the cluster (<code>pdal</code> environment):
+                  <code>python src/city/layers.py --city-dir data/cities/{{ city.name }}</code>, then <code>status.py</code> and refresh.</p>
 
                 <h3>{{ varLabel(yVar) }} against
-                  <select v-model="xVar" class="inline"><option v-for="v in placeVars" :key="v" :value="v">{{ varLabel(v).toLowerCase() }}</option></select></h3>
+                  <select v-model="xVar" class="inline">
+                    <optgroup label="Neighbourhood"><option v-for="v in placeVars" :key="v" :value="v">{{ varLabel(v).toLowerCase() }}</option></optgroup>
+                    <optgroup label="Trees and greenness"><option v-for="v in xTreeVars" :key="v" :value="v">{{ varLabel(v).toLowerCase() }}</option></optgroup>
+                  </select></h3>
                 <div class="chart" ref="chart">
                   <svg viewBox="0 0 500 320" role="img" :aria-label="varLabel(yVar) + ' against ' + varLabel(xVar)">
                     <g class="grid">
@@ -176,6 +265,9 @@
       </div>
     </aside>
   </main>
+
+  <!-- ============ datasets tab: the dataset registry (registry/ service, passed through /registry/) ============ -->
+  <iframe v-if="datasetsLoaded" v-show="view === 'datasets'" class="registry-frame" src="/registry/" title="Dataset registry"></iframe>
 
   <!-- ============ refresh dialog ============ -->
   <div class="modal" v-if="showRefresh" @click.self="showRefresh = false">

@@ -1,0 +1,1458 @@
+{
+  "schema": 1,
+  "project": {
+    "title": "Urban trees: dataset registry",
+    "description": "Every dataset the urban tree project uses or plans to use: model training, the city pipeline, and the people and buildings we link trees to.",
+    "contact": "Andi (fr_ac1079)",
+    "scope": {
+      "label": "Part",
+      "values": [
+        "Model",
+        "City pipeline",
+        "People and buildings"
+      ]
+    },
+    "groups": [
+      "Lidar",
+      "Labels",
+      "Imagery",
+      "Boundaries",
+      "Population and socioeconomics",
+      "Buildings",
+      "Other"
+    ],
+    "use_status": [
+      {
+        "key": "main",
+        "label": "Main analysis",
+        "cls": "s-main"
+      },
+      {
+        "key": "check",
+        "label": "Check / benchmark",
+        "cls": "s-check"
+      },
+      {
+        "key": "geo",
+        "label": "Geography",
+        "cls": "s-geo"
+      },
+      {
+        "key": "ref",
+        "label": "Reference",
+        "cls": "s-ref"
+      },
+      {
+        "key": "off",
+        "label": "Not used",
+        "cls": "s-off"
+      }
+    ],
+    "checklist_template": [
+      "Source and licence recorded",
+      "Exact release / survey noted",
+      "Downloaded (HPC path noted)",
+      "Read by a pipeline script",
+      "Checked on one city (Tempe or Gainesville)",
+      "Written up in the project docs"
+    ],
+    "extra_fields": [
+      {
+        "key": "res",
+        "label": "Spatial resolution / unit"
+      },
+      {
+        "key": "licence",
+        "label": "Licence"
+      }
+    ],
+    "notes": [
+      "Large files go to the HPC workspace (data/…), not this PC; folders in parentheses are on the HPC and not checked by the disk scan.",
+      "Note the exact survey / release / year under “Version used”: results are only comparable when that is known.",
+      "Never commit API keys (the Census KEY lives in .env).",
+      "Socioeconomic variables are published per block group at the finest; finer units carry counts only."
+    ],
+    "deployment": {
+      "mode": "tab",
+      "port": 8010,
+      "base_path": "/registry",
+      "folder": "city_dashboard/registry",
+      "data_root": "urban-tree-detection/data",
+      "decided": "2026-11-25"
+    }
+  },
+  "datasets": [
+    {
+      "id": "our-training-labels",
+      "name": "Hand-labelled lidar patches",
+      "publisher": "Own work (TreeLabellingTool)",
+      "use": "Training and test labels for the semantic (tree / not tree) and instance models; every tree has its own ID (101 on).",
+      "scope": "Model",
+      "group": "Labels",
+      "use_status": "main",
+      "version": "labels/ as of the d5 training (E12, I02); 55 held-out test patches",
+      "coverage": "Patches in FL, NY, MA, NL (Amsterdam), IL, DC, AZ, WA, CA",
+      "access": "Own data",
+      "path": "labels/",
+      "acquisition": {
+        "status": "processed",
+        "by": "Andi"
+      },
+      "extra": {
+        "res": "Points (lidar density of each survey)",
+        "licence": "Own"
+      },
+      "links": [],
+      "checklist": [
+        {
+          "id": "d9918d9a",
+          "text": "Source and licence recorded",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "a88d99fe",
+          "text": "Exact release / survey noted",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "319c3386",
+          "text": "Downloaded (HPC path noted)",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "e4d740e3",
+          "text": "Read by a pipeline script",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "ffa7f475",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": false
+        },
+        {
+          "id": "fb4c44f3",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [
+        {
+          "id": "05bfcd45",
+          "text": "Label more small trees, then rerun benchmark B02",
+          "done": false,
+          "created": "2026-11-25"
+        }
+      ],
+      "comments": []
+    },
+    {
+      "id": "usgs-laz-training",
+      "name": "USGS 3DEP lidar tiles for labelling",
+      "publisher": "U.S. Geological Survey",
+      "use": "Source point clouds the training patches were cut from.",
+      "scope": "Model",
+      "group": "Lidar",
+      "use_status": "main",
+      "version": "One survey per region (e.g. AZ_MaricopaPinal_2020)",
+      "coverage": "9 regional folders",
+      "access": "Free, public",
+      "path": "USGS_downloaded_las_files/",
+      "links": [
+        {
+          "label": "3DEP on AWS Open Data",
+          "url": "https://registry.opendata.aws/usgs-lidar/"
+        }
+      ],
+      "acquisition": {
+        "status": "processed",
+        "by": "Andi"
+      },
+      "extra": {
+        "res": "Varies by survey",
+        "licence": "Public domain (US Government)"
+      },
+      "checklist": [
+        {
+          "id": "2b84449d",
+          "text": "Source and licence recorded",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "ff8301c4",
+          "text": "Exact release / survey noted",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "cd5e9b7d",
+          "text": "Downloaded (HPC path noted)",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "9ff93e2a",
+          "text": "Read by a pipeline script",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "e047e9b8",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": false
+        },
+        {
+          "id": "2f088fb5",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [],
+      "comments": []
+    },
+    {
+      "id": "ahn-netherlands",
+      "name": "AHN (Actueel Hoogtebestand Nederland)",
+      "publisher": "Rijkswaterstaat / Het Waterschapshuis",
+      "use": "Amsterdam patches for training and a transfer test outside the US.",
+      "scope": "Model",
+      "group": "Lidar",
+      "use_status": "main",
+      "version": "AHN2 and AHN3, tile C_155000_464000 (COPC)",
+      "coverage": "Amsterdam test area",
+      "access": "Free, public",
+      "path": "labels/",
+      "links": [
+        {
+          "label": "AHN",
+          "url": "https://www.ahn.nl/"
+        }
+      ],
+      "acquisition": {
+        "status": "processed",
+        "by": "Andi"
+      },
+      "extra": {
+        "res": "Varies by AHN edition",
+        "licence": "Open (check exact terms)"
+      },
+      "checklist": [
+        {
+          "id": "cb3b6551",
+          "text": "Source and licence recorded",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "523f7de7",
+          "text": "Exact release / survey noted",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "d06ad472",
+          "text": "Downloaded (HPC path noted)",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "d87d70df",
+          "text": "Read by a pipeline script",
+          "done": false
+        },
+        {
+          "id": "a086109d",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": false
+        },
+        {
+          "id": "144993a2",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [],
+      "comments": []
+    },
+    {
+      "id": "naip",
+      "name": "NAIP aerial imagery (RGB + near infrared)",
+      "publisher": "USDA, via Microsoft Planetary Computer",
+      "use": "NDVI as a second view of greenery; input to the Ventura benchmark; RGB/NDVI layers in the labelling tool and dashboard.",
+      "scope": "Model",
+      "group": "Imagery",
+      "use_status": "check",
+      "version": "Newest NAIP year per tile (naip:year stored per tile)",
+      "coverage": "Conterminous US, ~0.6 m",
+      "access": "Free STAC API, no key",
+      "path": "(HPC: data/cities/<city>/naip/; local cache in the NAIP service)",
+      "links": [
+        {
+          "label": "Planetary Computer: NAIP",
+          "url": "https://planetarycomputer.microsoft.com/dataset/naip"
+        }
+      ],
+      "acquisition": {
+        "status": "processed",
+        "date": "2026-11-18",
+        "source_used": "Planetary Computer STAC"
+      },
+      "extra": {
+        "res": "0.6 m pixels",
+        "licence": "Public domain"
+      },
+      "checklist": [
+        {
+          "id": "b7b3daf1",
+          "text": "Source and licence recorded",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "2cfc7771",
+          "text": "Exact release / survey noted",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "19f9a211",
+          "text": "Downloaded (HPC path noted)",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "a3533079",
+          "text": "Read by a pipeline script",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "d67bd770",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "edeb3730",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [],
+      "comments": [
+        {
+          "id": "836afb90",
+          "author": "Claude",
+          "at": "2026-11-25T08:30:00Z",
+          "text": "Lidar and NAIP years can differ by several years; some mismatches in the comparison come from that, not the model."
+        }
+      ]
+    },
+    {
+      "id": "ventura-sfanet",
+      "name": "Ventura et al. urban tree detection: weights and hand labels",
+      "publisher": "J. Ventura et al. (GitHub jonathanventura/urban-tree-detection)",
+      "use": "Benchmark (B01, B02) and labelling aid; their true labels shown in the labelling tool.",
+      "scope": "Model",
+      "group": "Labels",
+      "use_status": "check",
+      "version": "Released .h5 weights; labels CSV (California)",
+      "coverage": "California cities",
+      "access": "Code MIT, data CC BY 4.0",
+      "path": "(urban-tree-detection/naip_benchmark/weights/)",
+      "links": [
+        {
+          "label": "GitHub",
+          "url": "https://github.com/jonathanventura/urban-tree-detection"
+        }
+      ],
+      "acquisition": {
+        "status": "processed",
+        "date": "2026-11-18",
+        "by": "Andi"
+      },
+      "extra": {
+        "res": "NAIP pixels; labels are points",
+        "licence": "MIT / CC BY 4.0"
+      },
+      "checklist": [
+        {
+          "id": "d729d0e5",
+          "text": "Source and licence recorded",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "8a23aa81",
+          "text": "Exact release / survey noted",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "1ab1bddd",
+          "text": "Downloaded (HPC path noted)",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "e7b9c01b",
+          "text": "Read by a pipeline script",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "6088fb4d",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "0e342e44",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [],
+      "comments": [
+        {
+          "id": "6231ae1f",
+          "author": "Claude",
+          "at": "2026-11-25T08:30:00Z",
+          "text": "Not every patch is fully labelled; use the labelled-area layer before counting misses."
+        }
+      ]
+    },
+    {
+      "id": "arcgis-ndvi",
+      "name": "NDVI layer (ArcGIS item aa9c87d6f17b452296252bd75005f6a4)",
+      "publisher": "ArcGIS Online (owner to confirm)",
+      "use": "Planned replacement for our NAIP-based NDVI once access is granted.",
+      "scope": "Model",
+      "group": "Imagery",
+      "use_status": "check",
+      "version": "—",
+      "coverage": "—",
+      "access": "Needs access to the item",
+      "path": "",
+      "acquisition": {
+        "status": "requested"
+      },
+      "extra": {
+        "res": "—",
+        "licence": "—"
+      },
+      "links": [],
+      "checklist": [
+        {
+          "id": "36a22bb7",
+          "text": "Source and licence recorded",
+          "done": false
+        },
+        {
+          "id": "e00357e2",
+          "text": "Exact release / survey noted",
+          "done": false
+        },
+        {
+          "id": "f09c4241",
+          "text": "Downloaded (HPC path noted)",
+          "done": false
+        },
+        {
+          "id": "1e6a8d0b",
+          "text": "Read by a pipeline script",
+          "done": false
+        },
+        {
+          "id": "e7cfe61b",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": false
+        },
+        {
+          "id": "cc8d4681",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [
+        {
+          "id": "6f835af3",
+          "text": "Get access, then note resolution, year and coverage",
+          "done": false,
+          "created": "2026-11-25"
+        }
+      ],
+      "comments": []
+    },
+    {
+      "id": "3dep-city-lidar",
+      "name": "USGS 3DEP lidar (Entwine point tiles)",
+      "publisher": "U.S. Geological Survey, on AWS (usgs-lidar-public)",
+      "use": "Input of the city pipeline: every city's point cloud, cut into 500 m tiles.",
+      "scope": "City pipeline",
+      "group": "Lidar",
+      "use_status": "main",
+      "version": "Newest, densest survey per city (e.g. FL_Peninsular_FDEM_Alachua_2018; MT_Helena_2012 and helena_2022)",
+      "coverage": "One survey per city, see the dashboard header",
+      "access": "Free, public, no key",
+      "path": "(HPC: data/cities/<city>/tiles/)",
+      "links": [
+        {
+          "label": "3DEP on AWS Open Data",
+          "url": "https://registry.opendata.aws/usgs-lidar/"
+        }
+      ],
+      "acquisition": {
+        "status": "processed",
+        "date": "2026-11-14",
+        "source_used": "s3 usgs-lidar-public via PDAL"
+      },
+      "extra": {
+        "res": "Survey density; runs at 4, 8 pts/m² and full",
+        "licence": "Public domain (US Government)"
+      },
+      "checklist": [
+        {
+          "id": "5adf9109",
+          "text": "Source and licence recorded",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "f05f93e7",
+          "text": "Exact release / survey noted",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "ec105a2b",
+          "text": "Downloaded (HPC path noted)",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "a58bb47d",
+          "text": "Read by a pipeline script",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "015ba3b3",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "04853a3a",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [
+        {
+          "id": "0455e2c3",
+          "text": "Run helena_2022 (hpc-todo step 2)",
+          "done": false,
+          "created": "2026-11-25"
+        },
+        {
+          "id": "fa4fb969",
+          "text": "Full-density run for every city (hpc-todo step 3)",
+          "done": false,
+          "created": "2026-11-25"
+        }
+      ],
+      "comments": []
+    },
+    {
+      "id": "3dep-survey-list",
+      "name": "3DEP survey boundaries list",
+      "publisher": "Hobu Inc. (hobuinc/usgs-lidar)",
+      "use": "Find which surveys cover a city and pick the newest, densest one (plan.py, survey_density.py).",
+      "scope": "City pipeline",
+      "group": "Lidar",
+      "use_status": "ref",
+      "version": "resources.geojson, fetched by plan.py",
+      "coverage": "All 3DEP EPT surveys",
+      "access": "Free, GitHub",
+      "path": "(downloaded by plan.py)",
+      "links": [
+        {
+          "label": "GitHub",
+          "url": "https://github.com/hobuinc/usgs-lidar"
+        }
+      ],
+      "acquisition": {
+        "status": "processed"
+      },
+      "extra": {
+        "res": "Survey polygons",
+        "licence": "See repository"
+      },
+      "checklist": [
+        {
+          "id": "d7e68b23",
+          "text": "Source and licence recorded",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "afc45099",
+          "text": "Exact release / survey noted",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "51084498",
+          "text": "Downloaded (HPC path noted)",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "740419d6",
+          "text": "Read by a pipeline script",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "b3cc8ffa",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": false
+        },
+        {
+          "id": "c3e553a1",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [],
+      "comments": []
+    },
+    {
+      "id": "tiger-places-2020",
+      "name": "TIGER/Line 2020 places (city limits)",
+      "publisher": "U.S. Census Bureau",
+      "use": "Official city limits that define each city's processed area.",
+      "scope": "City pipeline",
+      "group": "Boundaries",
+      "use_status": "geo",
+      "version": "TIGER2020 PLACE, one zip per state",
+      "coverage": "All US places",
+      "access": "Free download",
+      "path": "(HPC: downloaded by city_limits.py)",
+      "links": [
+        {
+          "label": "TIGER/Line 2020",
+          "url": "https://www.census.gov/geographies/mapping-files/2020/geo/tiger-line-file.html"
+        }
+      ],
+      "acquisition": {
+        "status": "processed"
+      },
+      "extra": {
+        "res": "Place polygons",
+        "licence": "Public domain"
+      },
+      "checklist": [
+        {
+          "id": "a55419a2",
+          "text": "Source and licence recorded",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "5aeb6d5a",
+          "text": "Exact release / survey noted",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "e0cc0729",
+          "text": "Downloaded (HPC path noted)",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "3617eba0",
+          "text": "Read by a pipeline script",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "100726fb",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "1f3bf8d1",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [],
+      "comments": []
+    },
+    {
+      "id": "tiger-bg-2020",
+      "name": "TIGER/Line 2020 block groups",
+      "publisher": "U.S. Census Bureau",
+      "use": "Neighbourhood polygons; the unit of the socioeconomic analysis.",
+      "scope": "People and buildings",
+      "group": "Boundaries",
+      "use_status": "geo",
+      "version": "TIGER2020 BG, one zip per state",
+      "coverage": "All US block groups",
+      "access": "Free download",
+      "path": "(HPC: block_groups.geojson per city, census.py)",
+      "links": [
+        {
+          "label": "TIGER/Line 2020",
+          "url": "https://www.census.gov/geographies/mapping-files/2020/geo/tiger-line-file.html"
+        }
+      ],
+      "acquisition": {
+        "status": "processed"
+      },
+      "extra": {
+        "res": "Block group (~600–3,000 people)",
+        "licence": "Public domain"
+      },
+      "checklist": [
+        {
+          "id": "7c8f1e25",
+          "text": "Source and licence recorded",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "3dae5735",
+          "text": "Exact release / survey noted",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "7bf463b7",
+          "text": "Downloaded (HPC path noted)",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "7639fd93",
+          "text": "Read by a pipeline script",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "db51c76e",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "ce0ce111",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [],
+      "comments": []
+    },
+    {
+      "id": "decennial-2020-bg",
+      "name": "2020 Decennial Census: residents per block group",
+      "publisher": "U.S. Census Bureau (api.census.gov)",
+      "use": "Residents per block group: trees and canopy per resident, residents per km².",
+      "scope": "People and buildings",
+      "group": "Population and socioeconomics",
+      "use_status": "main",
+      "version": "2020 Decennial Census",
+      "coverage": "Block groups of each processed city",
+      "access": "Free API key, KEY= in .env (never commit)",
+      "path": "(HPC: census.py writes block_groups.geojson)",
+      "links": [
+        {
+          "label": "Decennial Census API",
+          "url": "https://www.census.gov/data/developers/data-sets/decennial-census.html"
+        }
+      ],
+      "acquisition": {
+        "status": "processed"
+      },
+      "extra": {
+        "res": "Block group",
+        "licence": "Public domain"
+      },
+      "checklist": [
+        {
+          "id": "9b5c3621",
+          "text": "Source and licence recorded",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "bb15d26a",
+          "text": "Exact release / survey noted",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "fa5380bb",
+          "text": "Downloaded (HPC path noted)",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "cc25790a",
+          "text": "Read by a pipeline script",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "4efa542b",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "f9e28389",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [],
+      "comments": []
+    },
+    {
+      "id": "acs-2022-5yr",
+      "name": "American Community Survey 2018–2022 (5-year)",
+      "publisher": "U.S. Census Bureau (api.census.gov)",
+      "use": "Income, home value, year built, renters, household composition per block group.",
+      "scope": "People and buildings",
+      "group": "Population and socioeconomics",
+      "use_status": "main",
+      "version": "ACS 5-year 2018–2022",
+      "coverage": "Block groups of each processed city",
+      "access": "Free API key, KEY= in .env (never commit)",
+      "path": "(HPC: census.py)",
+      "acquisition": {
+        "status": "processed"
+      },
+      "extra": {
+        "res": "Block group (finest published level)",
+        "licence": "Public domain"
+      },
+      "links": [],
+      "checklist": [
+        {
+          "id": "f7a2882d",
+          "text": "Source and licence recorded",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "3e3bc193",
+          "text": "Exact release / survey noted",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "595964f7",
+          "text": "Downloaded (HPC path noted)",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "10866965",
+          "text": "Read by a pipeline script",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "eb645748",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": true,
+          "done_at": "2026-11-24"
+        },
+        {
+          "id": "364d2e3e",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [],
+      "comments": [
+        {
+          "id": "3b91d0ec",
+          "author": "Claude",
+          "at": "2026-11-25T08:30:00Z",
+          "text": "Socioeconomic variables exist only down to block group; anything finer is modelled. Margins of error are large for small block groups."
+        }
+      ]
+    },
+    {
+      "id": "tiger-blocks-2020",
+      "name": "TIGER/Line 2020 tabulation blocks (with counts)",
+      "publisher": "U.S. Census Bureau",
+      "use": "Block polygons with 2020 population and housing-unit counts, to weight building exposure by residents.",
+      "scope": "People and buildings",
+      "group": "Boundaries",
+      "use_status": "main",
+      "version": "tl_2020_<STATEFIPS>_tabblock20.zip",
+      "coverage": "All US blocks",
+      "access": "Free download",
+      "path": "(HPC: to decide)",
+      "links": [
+        {
+          "label": "TABBLOCK20 folder",
+          "url": "https://www2.census.gov/geo/tiger/TIGER2020/TABBLOCK20/"
+        },
+        {
+          "label": "Record layout",
+          "url": "https://www.census.gov/programs-surveys/geography/technical-documentation/complete-technical-documentation/tiger-geo-line.2020.html"
+        }
+      ],
+      "acquisition": {
+        "status": "located"
+      },
+      "extra": {
+        "res": "Block (often tens of people)",
+        "licence": "Public domain"
+      },
+      "checklist": [
+        {
+          "id": "778bcfdd",
+          "text": "Source and licence recorded",
+          "done": false
+        },
+        {
+          "id": "af611582",
+          "text": "Exact release / survey noted",
+          "done": false
+        },
+        {
+          "id": "3d655e79",
+          "text": "Downloaded (HPC path noted)",
+          "done": false
+        },
+        {
+          "id": "3d50922b",
+          "text": "Read by a pipeline script",
+          "done": false
+        },
+        {
+          "id": "66772a59",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": false
+        },
+        {
+          "id": "66c941ec",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [
+        {
+          "id": "aa4a8a4f",
+          "text": "Download Arizona (tl_2020_04_tabblock20.zip) on the HPC for the Tempe pilot",
+          "done": false,
+          "created": "2026-11-25"
+        }
+      ],
+      "comments": [
+        {
+          "id": "d1391984",
+          "author": "Claude",
+          "at": "2026-11-25T08:30:00Z",
+          "text": "2020 block counts carry deliberate privacy noise: use sums of blocks, not single blocks."
+        }
+      ]
+    },
+    {
+      "id": "dhc-2020-blocks",
+      "name": "2020 Census DHC tables at block level",
+      "publisher": "U.S. Census Bureau (api.census.gov/data/2020/dec/dhc)",
+      "use": "Age, sex, households and owner vs renter per block, beyond the counts in the block shapefile.",
+      "scope": "People and buildings",
+      "group": "Population and socioeconomics",
+      "use_status": "main",
+      "version": "2020 DHC",
+      "coverage": "Blocks of each processed city",
+      "access": "Free API key (same as census.py)",
+      "path": "(HPC: to decide)",
+      "links": [
+        {
+          "label": "DHC API",
+          "url": "https://api.census.gov/data/2020/dec/dhc.html"
+        },
+        {
+          "label": "DHC overview",
+          "url": "https://www.census.gov/data/tables/2023/dec/2020-census-dhc.html"
+        }
+      ],
+      "acquisition": {
+        "status": "located"
+      },
+      "extra": {
+        "res": "Block",
+        "licence": "Public domain"
+      },
+      "checklist": [
+        {
+          "id": "10d1e364",
+          "text": "Source and licence recorded",
+          "done": false
+        },
+        {
+          "id": "2769297b",
+          "text": "Exact release / survey noted",
+          "done": false
+        },
+        {
+          "id": "7b080d12",
+          "text": "Downloaded (HPC path noted)",
+          "done": false
+        },
+        {
+          "id": "2b4d0760",
+          "text": "Read by a pipeline script",
+          "done": false
+        },
+        {
+          "id": "fca68248",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": false
+        },
+        {
+          "id": "7d14dc0c",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [
+        {
+          "id": "419ab95d",
+          "text": "Pick the block tables (tenure, age) and fetch them for Maricopa County (013)",
+          "done": false,
+          "created": "2026-11-25"
+        }
+      ],
+      "comments": []
+    },
+    {
+      "id": "usa-structures",
+      "name": "USA Structures",
+      "publisher": "FEMA Response Geospatial Office / Oak Ridge National Laboratory",
+      "use": "Every building ≥450 ft² with use type (residential, commercial…) and address: per-building tree exposure for residential buildings.",
+      "scope": "People and buildings",
+      "group": "Buildings",
+      "use_status": "main",
+      "version": "To note (official site vs Data Lumos snapshot Deliverable20230502<ST>.zip)",
+      "coverage": "All US states and territories, >125 M structures",
+      "access": "Free",
+      "path": "(HPC: to decide)",
+      "links": [
+        {
+          "label": "FEMA page",
+          "url": "https://gis-fema.hub.arcgis.com/pages/usa-structures"
+        },
+        {
+          "label": "Data Lumos archive (May 2023)",
+          "url": "https://www.datalumos.org/datalumos/project/218721/version/V1/view"
+        }
+      ],
+      "acquisition": {
+        "status": "located"
+      },
+      "extra": {
+        "res": "Building footprint",
+        "licence": "US Government work"
+      },
+      "checklist": [
+        {
+          "id": "23ea6004",
+          "text": "Source and licence recorded",
+          "done": false
+        },
+        {
+          "id": "7ef6d8c7",
+          "text": "Exact release / survey noted",
+          "done": false
+        },
+        {
+          "id": "f295c055",
+          "text": "Downloaded (HPC path noted)",
+          "done": false
+        },
+        {
+          "id": "9eaaaf94",
+          "text": "Read by a pipeline script",
+          "done": false
+        },
+        {
+          "id": "c4205c81",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": false
+        },
+        {
+          "id": "6d118c74",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [
+        {
+          "id": "9c9136a2",
+          "text": "Download the Arizona file on the HPC for the Tempe pilot",
+          "done": false,
+          "created": "2026-11-25"
+        },
+        {
+          "id": "1c17c621",
+          "text": "Note which version (date) and whether POP_MEDIAN is in it",
+          "done": false,
+          "created": "2026-11-25"
+        }
+      ],
+      "comments": [
+        {
+          "id": "4884a628",
+          "author": "Claude",
+          "at": "2026-11-25T08:30:00Z",
+          "text": "POP_MEDIAN (per-building population) is modelled: use with care, not as a measurement."
+        }
+      ]
+    },
+    {
+      "id": "ms-footprints",
+      "name": "US Building Footprints",
+      "publisher": "Microsoft (GitHub microsoft/USBuildingFootprints)",
+      "use": "Cross-check of building outlines; no use type.",
+      "scope": "People and buildings",
+      "group": "Buildings",
+      "use_status": "check",
+      "version": "—",
+      "coverage": "US, ~130 M footprints",
+      "access": "Free (ODbL)",
+      "path": "",
+      "links": [
+        {
+          "label": "GitHub",
+          "url": "https://github.com/microsoft/USBuildingFootprints"
+        }
+      ],
+      "acquisition": {
+        "status": "located"
+      },
+      "extra": {
+        "res": "Building footprint",
+        "licence": "ODbL"
+      },
+      "checklist": [
+        {
+          "id": "b6ef0d7a",
+          "text": "Source and licence recorded",
+          "done": false
+        },
+        {
+          "id": "19577766",
+          "text": "Exact release / survey noted",
+          "done": false
+        },
+        {
+          "id": "804ecb85",
+          "text": "Downloaded (HPC path noted)",
+          "done": false
+        },
+        {
+          "id": "1d5d46b3",
+          "text": "Read by a pipeline script",
+          "done": false
+        },
+        {
+          "id": "ca0d0a57",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": false
+        },
+        {
+          "id": "be958b50",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [],
+      "comments": [
+        {
+          "id": "5bd8cd93",
+          "author": "Claude",
+          "at": "2026-11-25T08:30:00Z",
+          "text": "Only needed if USA Structures has gaps."
+        }
+      ]
+    },
+    {
+      "id": "lidar-buildings",
+      "name": "Buildings from our lidar (class 6)",
+      "publisher": "Derived from USGS 3DEP",
+      "use": "Building outlines and heights from the same flight as the trees (no year mismatch); cross-check of USA Structures.",
+      "scope": "People and buildings",
+      "group": "Buildings",
+      "use_status": "check",
+      "version": "—",
+      "coverage": "Processed cities",
+      "access": "Own derivation",
+      "path": "",
+      "acquisition": {
+        "status": "wanted"
+      },
+      "extra": {
+        "res": "Building footprint + height",
+        "licence": "Public domain source"
+      },
+      "links": [],
+      "checklist": [
+        {
+          "id": "495788e1",
+          "text": "Source and licence recorded",
+          "done": false
+        },
+        {
+          "id": "4a58fa7f",
+          "text": "Exact release / survey noted",
+          "done": false
+        },
+        {
+          "id": "e4600791",
+          "text": "Downloaded (HPC path noted)",
+          "done": false
+        },
+        {
+          "id": "8631bacc",
+          "text": "Read by a pipeline script",
+          "done": false
+        },
+        {
+          "id": "bac051f7",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": false
+        },
+        {
+          "id": "77ce8dee",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [
+        {
+          "id": "459917f8",
+          "text": "Add a step in process.py that saves building outlines per tile",
+          "done": false,
+          "created": "2026-11-25"
+        }
+      ],
+      "comments": []
+    },
+    {
+      "id": "county-parcels",
+      "name": "County parcel / assessor records",
+      "publisher": "County assessors (e.g. Maricopa County Assessor for Tempe)",
+      "use": "Per-property value, year built, land use, owner-occupied: the closest to household socioeconomics.",
+      "scope": "People and buildings",
+      "group": "Buildings",
+      "use_status": "ref",
+      "version": "—",
+      "coverage": "Differs by county",
+      "access": "Varies by county; no free national source",
+      "path": "",
+      "acquisition": {
+        "status": "wanted"
+      },
+      "extra": {
+        "res": "Parcel",
+        "licence": "Varies"
+      },
+      "links": [],
+      "checklist": [
+        {
+          "id": "bbe0f971",
+          "text": "Source and licence recorded",
+          "done": false
+        },
+        {
+          "id": "66f6e78c",
+          "text": "Exact release / survey noted",
+          "done": false
+        },
+        {
+          "id": "d797bf4a",
+          "text": "Downloaded (HPC path noted)",
+          "done": false
+        },
+        {
+          "id": "0f15c3c7",
+          "text": "Read by a pipeline script",
+          "done": false
+        },
+        {
+          "id": "69603699",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": false
+        },
+        {
+          "id": "9e2086cb",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [
+        {
+          "id": "24095340",
+          "text": "Later: check what Maricopa County publishes",
+          "done": false,
+          "created": "2026-11-25"
+        }
+      ],
+      "comments": []
+    },
+    {
+      "id": "enviroatlas-dasymetric",
+      "name": "EnviroAtlas 2020 dasymetric population",
+      "publisher": "US EPA",
+      "use": "2020 block counts spread onto 30 m pixels by land cover; residents near trees, or block groups cut by the processed area.",
+      "scope": "People and buildings",
+      "group": "Population and socioeconomics",
+      "use_status": "check",
+      "version": "v1.1",
+      "coverage": "Conterminous US",
+      "access": "Free",
+      "path": "",
+      "links": [
+        {
+          "label": "data.gov",
+          "url": "https://catalog.data.gov/dataset/enviroatlas-2020-dasymetric-population-for-the-conterminous-united-states-v1-1"
+        }
+      ],
+      "acquisition": {
+        "status": "located"
+      },
+      "extra": {
+        "res": "30 m",
+        "licence": "Public domain"
+      },
+      "checklist": [
+        {
+          "id": "5d6a30f4",
+          "text": "Source and licence recorded",
+          "done": false
+        },
+        {
+          "id": "9e54d576",
+          "text": "Exact release / survey noted",
+          "done": false
+        },
+        {
+          "id": "4ab02e07",
+          "text": "Downloaded (HPC path noted)",
+          "done": false
+        },
+        {
+          "id": "9f7eb45e",
+          "text": "Read by a pipeline script",
+          "done": false
+        },
+        {
+          "id": "cd254d02",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": false
+        },
+        {
+          "id": "ed8f1e1f",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [],
+      "comments": [
+        {
+          "id": "971287ea",
+          "author": "Claude",
+          "at": "2026-11-25T08:30:00Z",
+          "text": "Possibly redundant once blocks + buildings are in."
+        }
+      ]
+    },
+    {
+      "id": "meta-hrsl",
+      "name": "High Resolution Population Density Maps + Demographic Estimates (US)",
+      "publisher": "Meta Data for Good / CIESIN, on HDX",
+      "use": "Not used.",
+      "scope": "People and buildings",
+      "group": "Population and socioeconomics",
+      "use_status": "off",
+      "version": "—",
+      "coverage": "US, 30 m",
+      "access": "Free",
+      "path": "",
+      "links": [
+        {
+          "label": "HDX",
+          "url": "https://data.humdata.org/dataset/united-states-high-resolution-population-density-maps-demographic-estimates"
+        }
+      ],
+      "acquisition": {
+        "status": "unavailable"
+      },
+      "extra": {
+        "res": "~30 m (1 arc-second)",
+        "licence": "CC BY 4.0"
+      },
+      "checklist": [
+        {
+          "id": "ea04ff5b",
+          "text": "Source and licence recorded",
+          "done": false
+        },
+        {
+          "id": "4c8ac784",
+          "text": "Exact release / survey noted",
+          "done": false
+        },
+        {
+          "id": "dcfa4b12",
+          "text": "Downloaded (HPC path noted)",
+          "done": false
+        },
+        {
+          "id": "5cfb03ba",
+          "text": "Read by a pipeline script",
+          "done": false
+        },
+        {
+          "id": "823a13c0",
+          "text": "Checked on one city (Tempe or Gainesville)",
+          "done": false
+        },
+        {
+          "id": "bc2fdd37",
+          "text": "Written up in the project docs",
+          "done": false
+        }
+      ],
+      "next_steps": [],
+      "comments": [
+        {
+          "id": "2eb6b268",
+          "author": "Claude",
+          "at": "2026-11-25T08:30:00Z",
+          "text": "Decided 2026-11-24 not to use: census counts are spread over cells with buildings, so tree-covered cells get fewer people by construction. Blocks + buildings do the same with finer, real inputs."
+        }
+      ]
+    }
+  ],
+  "revision": 0,
+  "saved_at": "2026-11-25T08:28:47Z"
+}

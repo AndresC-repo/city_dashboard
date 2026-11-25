@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data Registry</title>
+<style>
+/* Catalogue-card layout: one reading column; progress strip, sticky filter bar, then datasets grouped by scope and
+   role as ruled rows. Tokens and type follow the Partisan Gap Data Registry (Oct 2026). */
+:root{
+ --bg:#f6f7f8; --surface:#ffffff; --fg:#1b2127; --muted:#5b6670; --line:#d9dee3;
+ --accent:#1f5f8b; --accent-soft:#e3eef6;
+ --main:#2e7d4f; --main-soft:#e2f2e8; --check:#8a5a00; --check-soft:#fbefd6;
+ --ref:#6b4f9a; --ref-soft:#eee7f7; --off:#6c757d; --off-soft:#eceef0;
+ --bad:#a23b2c; --bad-soft:#f8e3df;
+ --f-display:"Source Serif 4", Georgia, "Times New Roman", serif;
+ --f-body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+ --f-mono:"IBM Plex Mono", ui-monospace, Consolas, monospace;
+ color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+ --bg:#12161a; --surface:#1a2026; --fg:#e4e8ec; --muted:#9aa5af; --line:#2c343c;
+ --accent:#7db7e0; --accent-soft:#1d3141; --main:#7fcf9e; --main-soft:#183326; --check:#e6b45c; --check-soft:#372a12;
+ --ref:#b9a2e3; --ref-soft:#2a2238; --off:#a3acb4; --off-soft:#262c32; --bad:#ef8f80; --bad-soft:#3a1f1b; color-scheme:dark}}
+:root[data-theme="dark"]{
+ --bg:#12161a; --surface:#1a2026; --fg:#e4e8ec; --muted:#9aa5af; --line:#2c343c;
+ --accent:#7db7e0; --accent-soft:#1d3141; --main:#7fcf9e; --main-soft:#183326; --check:#e6b45c; --check-soft:#372a12;
+ --ref:#b9a2e3; --ref-soft:#2a2238; --off:#a3acb4; --off-soft:#262c32; --bad:#ef8f80; --bad-soft:#3a1f1b; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.55}
+.wrap{max-width:980px;margin:0 auto;padding-inline:16px;padding-block:32px 64px}
+header h1{font-family:var(--f-display);font-weight:700;font-size:clamp(28px,4vw,38px);line-height:1.15;margin:0 0 8px;text-wrap:balance}
+header p{margin:0;color:var(--muted);max-width:68ch}
+.meta{display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:14px;font-size:13px;color:var(--muted)}
+.meta b{color:var(--fg);font-weight:600}
+.notes{margin:22px 0 0;padding:14px 16px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:14px}
+.notes ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
+/* progress strip */
+.progress{margin-top:22px;display:grid;gap:8px}
+.stack{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--off-soft)}
+.stack span{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.legend b{color:var(--fg);font-variant-numeric:tabular-nums}
+/* filter bar */
+.bar{position:sticky;top:0;z-index:3;background:var(--bg);padding-block:12px;margin-top:18px;border-bottom:1px solid var(--line);display:grid;gap:8px}
+.row{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+.bar input[type=search]{flex:1 1 220px;min-width:0;font:inherit;padding:8px 12px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg)}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button,.btn{font:inherit;font-size:13px;padding:6px 11px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--fg);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.btn.small{font-size:12px;padding:3px 9px}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.count{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.saved{font-size:12.5px;color:var(--muted);margin-left:auto}
+.saved.err{color:var(--bad)}
+.banner{display:none;margin-top:10px;padding:10px 14px;border:1px solid var(--bad);background:var(--bad-soft);border-radius:6px;font-size:14px}
+.banner.on{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+/* entries */
+h2{font-family:var(--f-display);font-weight:600;font-size:22px;margin:34px 0 4px}
+h2 small{font-family:var(--f-body);font-size:13px;font-weight:400;color:var(--muted);margin-left:8px}
+.group-label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:22px 0 6px}
+.entry{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;padding:14px 0;border-top:1px solid var(--line)}
+section>.entry:first-child{border-top:none}
+.top{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline}
+.name{font-weight:600;font-size:16px}
+.top .spacer{flex:1}
+.pub{color:var(--muted);font-size:14px}
+.pill{font-size:11.5px;font-weight:600;letter-spacing:.02em;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.s-main{background:var(--main-soft);color:var(--main)} .s-check{background:var(--check-soft);color:var(--check)}
+.s-geo{background:var(--accent-soft);color:var(--accent)} .s-ref{background:var(--ref-soft);color:var(--ref)}
+.s-off{background:var(--off-soft);color:var(--off)} .s-bad{background:var(--bad-soft);color:var(--bad)}
+.use{margin:0;max-width:75ch}
+dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:3px 14px;margin:2px 0 0;font-size:13.5px}
+dt{color:var(--muted)} dd{margin:0;min-width:0;overflow-wrap:anywhere}
+code{font-family:var(--f-mono);font-size:12.5px;background:var(--off-soft);padding:1px 5px;border-radius:4px}
+a{color:var(--accent);text-underline-offset:2px}
+.links{display:flex;flex-wrap:wrap;gap:4px 14px}
+.disk{font-size:12.5px;margin-left:8px}
+.disk.ok{color:var(--main)} .disk.no{color:var(--bad)} .disk.na{color:var(--muted)}
+select.acq{font:inherit;font-size:12.5px;padding:2px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg)}
+/* work area: checklist, next steps, comments */
+details.work{margin-top:4px;font-size:13.5px}
+details.work>summary{cursor:pointer;color:var(--accent);list-style:none;display:inline-flex;gap:10px;flex-wrap:wrap}
+details.work>summary::-webkit-details-marker{display:none}
+details.work>summary::before{content:"▸";color:var(--muted)}
+details.work[open]>summary::before{content:"▾"}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px 24px;margin-top:8px}
+.box h4{margin:0 0 4px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.items{list-style:none;margin:0;padding:0;display:grid;gap:3px}
+.items li{display:flex;gap:8px;align-items:flex-start}
+.items li.done>div>span:first-child{color:var(--muted);text-decoration:line-through}
+.items input[type=checkbox]{margin-top:4px;flex:none}
+.items .x{margin-left:auto;border:none;background:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1}
+.add{display:flex;gap:6px;margin-top:6px}
+.add input{flex:1;min-width:0;font:inherit;font-size:13px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg)}
+.due{font-size:12px;color:var(--muted);white-space:nowrap}
+.comments{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.comments li{border-left:2px solid var(--line);padding-left:10px}
+.comments .who{font-size:12px;color:var(--muted)}
+.comments textarea{width:100%;font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg);min-height:56px}
+/* edit form */
+form.edit{display:grid;gap:8px;margin-top:8px;padding:12px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+form.edit label{display:grid;gap:2px;font-size:12.5px;color:var(--muted)}
+form.edit input,form.edit select,form.edit textarea{font:inherit;font-size:14px;color:var(--fg);padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+form.edit .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+.hint{font-size:12px;color:var(--muted)}
+.empty{padding:30px 0;color:var(--muted)}
+footer{margin-top:48px;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
+@media (max-width:520px){dl{grid-template-columns:minmax(0,1fr)} dt{margin-top:4px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1 id="title">Data registry</h1>
+  <p id="desc"></p>
+  <div class="meta" id="meta"></div>
+  <div class="notes" id="notes" hidden></div>
+</header>
+
+<div class="progress" aria-label="Acquisition progress">
+  <div class="stack" id="stack"></div>
+  <div class="legend" id="legend"></div>
+</div>
+
+<div class="banner" id="conflict" role="alert">
+  <span>Someone else saved the registry while you were editing.</span>
+  <button class="btn small" id="reloadBtn">Load their version (drop my last change)</button>
+  <button class="btn small danger" id="forceBtn">Keep mine (overwrite)</button>
+</div>
+
+<div class="bar" role="search">
+  <div class="row">
+    <input type="search" id="q" placeholder="Search name, publisher, use, version, folder, comments…" aria-label="Search datasets">
+    <button class="btn primary" id="addBtn">+ Add dataset</button>
+  </div>
+  <div class="row">
+    <div class="seg" id="f-scope" aria-label="Scope"></div>
+    <div class="seg" id="f-use" aria-label="Role in analysis"></div>
+  </div>
+  <div class="row">
+    <div class="seg" id="f-acq" aria-label="Acquisition"></div>
+    <div class="seg"><button id="f-open" aria-pressed="false">Open next steps</button></div>
+    <span class="count" id="count"></span>
+    <span class="saved" id="saved">loading…</span>
+  </div>
+</div>
+
+<main id="out"></main>
+
+<footer>
+  <span id="foot"></span>
+  · <a href="api/export.md">Export Markdown</a>
+  · <a href="api/registry" target="_blank" rel="noopener">Raw JSON</a>
+  · <a href="#" id="rescan">Re-scan project folder</a>
+</footer>
+</div>
+
+<script>
+"use strict";
+/* ---------- vocabularies (overridable in project config) ---------- */
+const USE_DEFAULT = [
+  {key:"main", label:"Main analysis", cls:"s-main"}, {key:"check", label:"Check", cls:"s-check"},
+  {key:"geo", label:"Geography", cls:"s-geo"}, {key:"ref", label:"Reference", cls:"s-ref"},
+  {key:"off", label:"Not used", cls:"s-off"}];
+const ACQ = [   // acquisition pipeline, in order
+  {key:"wanted",      label:"Wanted",      color:"var(--bad)",    have:false},
+  {key:"located",     label:"Source found",color:"var(--check)",  have:false},
+  {key:"requested",   label:"Requested",   color:"var(--ref)",    have:false},
+  {key:"downloaded",  label:"Downloaded",  color:"var(--accent)", have:true},
+  {key:"processed",   label:"Processed",   color:"#4f8f6b",       have:true},
+  {key:"verified",    label:"Verified",    color:"var(--main)",   have:true},
+  {key:"unavailable", label:"Unavailable", color:"var(--off)",    have:false}];
+const ACQ_MAP = Object.fromEntries(ACQ.map(a=>[a.key,a]));
+const CHECK_DEFAULT = ["Source and licence recorded","Exact release / version noted","Raw file saved in project folder",
+  "Size or checksum recorded","Loaded and checked against the source","Documented in the changelog"];
+
+/* ---------- state ---------- */
+let doc = null, rev = null, scanRes = {}, pending = null, saving = false, openIds = new Set(), editId = null;
+const F = {q:"", scope:"all", use:"all", acq:"all", open:false};
+try{ Object.assign(F, JSON.parse(localStorage.getItem("registry-filters")||"{}")); }catch(e){}
+try{ JSON.parse(localStorage.getItem("registry-open")||"[]").forEach(i=>openIds.add(i)); }catch(e){}
+let author = ""; try{ author = localStorage.getItem("registry-author")||""; }catch(e){}
+
+const $ = id => document.getElementById(id);
+const esc = t => String(t ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const uid = () => Math.random().toString(36).slice(2,10);
+const today = () => new Date().toISOString().slice(0,10);
+const useList = () => (doc.project.use_status && doc.project.use_status.length) ? doc.project.use_status : USE_DEFAULT;
+const useOf = k => useList().find(u=>u.key===k) || {key:k,label:k||"—",cls:"s-off"};
+const groups = () => doc.project.groups && doc.project.groups.length ? doc.project.groups : ["Other"];
+const scopes = () => (doc.project.scope && doc.project.scope.values) || [];
+const extras = () => doc.project.extra_fields || [];          // project-specific fields: [{key,label}]
+function persistUI(){ try{ localStorage.setItem("registry-filters", JSON.stringify(F));
+  localStorage.setItem("registry-open", JSON.stringify([...openIds])); }catch(e){} }
+function fmtBytes(b){ if(b==null) return ""; const u=["B","KB","MB","GB","TB"]; let i=0; while(b>=1024&&i<4){b/=1024;i++;} return b.toFixed(i?1:0)+" "+u[i]; }
+
+/* ---------- server ---------- */
+async function load(){
+  const r = await fetch("api/registry"); doc = await r.json(); rev = r.headers.get("ETag");
+  doc.datasets.forEach(normalise);
+  setSaved("saved · revision "+rev);
+  render(); rescan();
+}
+async function rescan(){
+  try{ const r = await fetch("api/scan"); const j = await r.json(); scanRes = j.results||{}; doc._root = j.data_root; render(); }catch(e){}
+}
+function normalise(d){
+  d.links ??= []; d.checklist ??= []; d.next_steps ??= []; d.comments ??= [];
+  d.acquisition ??= {status:"wanted"}; d.acquisition.status ??= "wanted";
+}
+function setSaved(t, err){ const s=$("saved"); s.textContent=t; s.classList.toggle("err", !!err); }
+function queueSave(){ clearTimeout(pending); setSaved("unsaved changes…"); pending = setTimeout(()=>save(false), 600); }
+async function save(force){
+  if(saving){ queueSave(); return; }
+  saving = true;
+  const body = JSON.parse(JSON.stringify(doc)); delete body._root;
+  try{
+    const r = await fetch("api/registry", {method:"PUT", headers:{"Content-Type":"application/json",
+      ...(force?{}:{"If-Match":rev})}, body: JSON.stringify(body)});
+    if(r.status===409){ setSaved("not saved — conflict", true); $("conflict").classList.add("on"); }
+    else if(!r.ok){ const j=await r.json().catch(()=>({})); setSaved("not saved — "+(j.error||r.status), true); }
+    else { const j = await r.json(); rev = String(j.revision); $("conflict").classList.remove("on");
+      setSaved("saved · revision "+rev+" · "+new Date().toLocaleTimeString()); }
+  }catch(e){ setSaved("not saved — server unreachable", true); }
+  saving = false;
+}
+$("reloadBtn").onclick = ()=>{ $("conflict").classList.remove("on"); load(); };
+$("forceBtn").onclick = ()=>{ $("conflict").classList.remove("on"); save(true); };
+$("rescan").onclick = e=>{ e.preventDefault(); rescan(); };
+
+/* ---------- filtering ---------- */
+function isOpenStep(d){ return d.next_steps.some(s=>!s.done); }
+function match(d){
+  if(F.scope!=="all" && d.scope!==F.scope) return false;
+  if(F.use!=="all" && d.use_status!==F.use) return false;
+  if(F.acq==="have" && !ACQ_MAP[d.acquisition.status]?.have) return false;
+  if(F.acq==="missing" && (ACQ_MAP[d.acquisition.status]?.have || d.acquisition.status==="unavailable")) return false;
+  if(!["all","have","missing"].includes(F.acq) && d.acquisition.status!==F.acq) return false;
+  if(F.open && !isOpenStep(d)) return false;
+  if(F.q){
+    const hay = [d.name,d.publisher,d.use,d.version,d.coverage,d.path,d.access,d.group,d.acquisition.source_used,
+      ...Object.values(d.extra||{}),
+      ...d.comments.map(c=>c.text), ...d.next_steps.map(s=>s.text)].join(" ").toLowerCase();
+    return F.q.toLowerCase().split(/\s+/).every(w=>hay.includes(w));
+  }
+  return true;
+}
+
+/* ---------- rendering ---------- */
+function segButtons(el, items, key){
+  el.innerHTML = items.map(([v,l])=>`<button data-v="${esc(v)}" aria-pressed="${F[key]===v}">${esc(l)}</button>`).join("");
+}
+function header(){
+  const p = doc.project;
+  document.title = p.title || "Data registry";
+  $("title").textContent = p.title || "Data registry";
+  $("desc").textContent = p.description || "";
+  const bits = [];
+  if(scopes().length) bits.push(`<span>${esc(p.scope.label||"Scope")} <b>${scopes().map(esc).join(", ")}</b></span>`);
+  if(p.contact) bits.push(`<span>Contact <b>${esc(p.contact)}</b></span>`);
+  bits.push(`<span>Last saved <b>${esc((doc.saved_at||"").slice(0,10))}</b></span>`);
+  bits.push(`<span>Project folder scan <b>${doc._root ? esc(doc._root) : "off"}</b></span>`);
+  $("meta").innerHTML = bits.join("");
+  const n = $("notes");
+  if(p.notes && p.notes.length){ n.hidden=false; n.innerHTML = "<b>Before you download</b><ul>"+p.notes.map(x=>"<li>"+esc(x)+"</li>").join("")+"</ul>"; }
+  else n.hidden = true;
+  // progress
+  const tot = doc.datasets.length || 1, counts = {};
+  doc.datasets.forEach(d=>counts[d.acquisition.status]=(counts[d.acquisition.status]||0)+1);
+  $("stack").innerHTML = ACQ.filter(a=>counts[a.key]).map(a=>`<span title="${a.label}: ${counts[a.key]}" style="width:${100*counts[a.key]/tot}%;background:${a.color}"></span>`).join("");
+  const have = doc.datasets.filter(d=>ACQ_MAP[d.acquisition.status]?.have).length;
+  const steps = doc.datasets.reduce((s,d)=>s+d.next_steps.filter(x=>!x.done).length,0);
+  const found = Object.values(scanRes).filter(r=>r.state==="found").length;
+  $("legend").innerHTML = `<span><b>${have}</b> of <b>${doc.datasets.length}</b> in hand</span>` +
+    ACQ.filter(a=>counts[a.key]).map(a=>`<span><i style="background:${a.color}"></i>${a.label} <b>${counts[a.key]}</b></span>`).join("") +
+    `<span>Open next steps <b>${steps}</b></span>` + (doc._root ? `<span>Found on disk <b>${found}</b></span>` : "");
+  // filters
+  segButtons($("f-scope"), [["all","All"], ...scopes().map(s=>[s,s])], "scope");
+  segButtons($("f-use"), [["all","Any role"], ...useList().map(u=>[u.key,u.label])], "use");
+  segButtons($("f-acq"), [["all","Any stage"],["missing","Still missing"],["have","In hand"], ...ACQ.map(a=>[a.key,a.label])], "acq");
+  $("f-open").setAttribute("aria-pressed", String(F.open));
+  $("q").value = F.q;
+}
+function diskBadge(d){
+  const r = scanRes[d.id]; if(!r) return "";
+  if(r.state==="found") return `<span class="disk ok">✓ on disk: ${r.files} file${r.files>1?"s":""}, ${fmtBytes(r.bytes)}, newest ${new Date(r.newest*1000).toISOString().slice(0,10)}</span>`;
+  if(r.state==="missing") return `<span class="disk no">✗ not found at this path</span>`;
+  if(r.state==="empty") return `<span class="disk no">✗ folder is empty</span>`;
+  if(r.state==="outside-root") return `<span class="disk na">path outside project folder</span>`;
+  return "";
+}
+function items(d, list, kind){
+  return `<ul class="items">` + d[list].map(it=>`<li class="${it.done?"done":""}">
+      <input type="checkbox" ${it.done?"checked":""} data-act="tick" data-list="${list}" data-iid="${it.id}" aria-label="${esc(it.text)}">
+      <div><span>${esc(it.text)}</span>${it.due?` <span class="due">· due ${esc(it.due)}</span>`:""}${it.done&&it.done_at?` <span class="due">· done ${esc(it.done_at)}</span>`:""}</div>
+      <button class="x" data-act="del-item" data-list="${list}" data-iid="${it.id}" aria-label="Remove">×</button></li>`).join("") + `</ul>
+    <div class="add"><input data-add="${list}" placeholder="${kind==="step"?"New next step… (add  @2026-12-01  for a due date)":"New check item…"}" aria-label="Add ${kind}">
+    <button class="btn small" data-act="add-item" data-list="${list}">Add</button></div>`;
+}
+function entry(d){
+  const u = useOf(d.use_status), a = ACQ_MAP[d.acquisition.status] || ACQ[0];
+  const done = d.checklist.filter(x=>x.done).length, open = d.next_steps.filter(x=>!x.done).length;
+  const links = d.links.length ? '<div class="links">'+d.links.map(l=>`<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label||l.url)} ↗</a>`).join("")+"</div>" : "<span>No public download</span>";
+  const acqSel = `<select class="acq" data-act="acq" aria-label="Acquisition stage">${ACQ.map(x=>`<option value="${x.key}" ${x.key===a.key?"selected":""}>${x.label}</option>`).join("")}</select>`;
+  const got = d.acquisition;
+  const gotTxt = [got.date && ("on "+got.date), got.by && ("by "+got.by), got.source_used && ("from "+got.source_used)].filter(Boolean).join(" ");
+  return `<article class="entry" data-id="${esc(d.id)}">
+    <div class="top"><span class="name">${esc(d.name)}</span><span class="pill ${u.cls}">${esc(u.label)}</span>
+      <span class="pill" style="background:color-mix(in srgb, ${a.color} 16%, transparent);color:${a.color}">${esc(a.label)}</span>
+      <span class="spacer"></span><button class="btn small" data-act="edit">${editId===d.id?"Close editor":"Edit"}</button></div>
+    <div class="pub">${esc(d.publisher)}</div>
+    ${d.use?`<p class="use">${esc(d.use)}</p>`:""}
+    <dl><dt>Download</dt><dd>${links}</dd>
+      <dt>Version used</dt><dd>${esc(d.version)||"—"}</dd>
+      <dt>Coverage</dt><dd>${esc(d.coverage)||"—"}</dd>
+      <dt>Access</dt><dd>${esc(d.access)||"—"}</dd>
+      <dt>Project folder</dt><dd>${d.path?(d.path.startsWith("(")?esc(d.path):`<code>${esc(d.path)}</code>`):"—"}${diskBadge(d)}</dd>
+      ${extras().map(x=>`<dt>${esc(x.label)}</dt><dd>${esc((d.extra||{})[x.key])||"—"}</dd>`).join("")}
+      <dt>Acquired</dt><dd>${acqSel} ${gotTxt?`<span class="hint">${esc(gotTxt)}</span>`:""}</dd></dl>
+    ${editId===d.id?editor(d):""}
+    <details class="work" ${openIds.has(d.id)?"open":""} data-act="toggle">
+      <summary><span>Checklist ${done}/${d.checklist.length}</span><span>Next steps ${open} open</span><span>Comments ${d.comments.length}</span></summary>
+      <div class="cols">
+        <div class="box"><h4>Checklist</h4>${items(d,"checklist","check")}</div>
+        <div class="box"><h4>Next steps</h4>${items(d,"next_steps","step")}</div>
+        <div class="box"><h4>Comments</h4><ul class="comments">${d.comments.map(c=>`<li><div class="who">${esc(c.author||"—")} · ${esc((c.at||"").slice(0,16).replace("T"," "))}
+          <button class="x btn small" data-act="del-comment" data-cid="${c.id}" aria-label="Delete comment" style="border:none;background:none;color:var(--muted)">×</button></div>${esc(c.text)}</li>`).join("")}</ul>
+          <div style="margin-top:6px;display:grid;gap:6px;justify-items:start"><textarea data-comment placeholder="Add a comment (who said what, decisions, problems with the file…)" aria-label="New comment"></textarea>
+          <button class="btn small" data-act="add-comment">Post${author?" as "+esc(author):""}</button></div></div>
+      </div>
+    </details>
+  </article>`;
+}
+function editor(d){
+  const opt = (arr, cur) => arr.map(([v,l])=>`<option value="${esc(v)}" ${v===cur?"selected":""}>${esc(l)}</option>`).join("");
+  return `<form class="edit" data-act="form">
+    <div class="two"><label>Name<input name="name" value="${esc(d.name)}" required></label>
+      <label>Publisher<input name="publisher" value="${esc(d.publisher)}"></label></div>
+    <label>What we use it for<textarea name="use" rows="2">${esc(d.use)}</textarea></label>
+    <div class="two">
+      <label>${esc(doc.project.scope?.label||"Scope")}<select name="scope">${opt([["",""],...scopes().map(s=>[s,s])], d.scope)}</select></label>
+      <label>Group<select name="group">${opt(groups().map(g=>[g,g]), d.group)}</select></label>
+      <label>Role in analysis<select name="use_status">${opt(useList().map(u=>[u.key,u.label]), d.use_status)}</select></label></div>
+    <div class="two"><label>Version / release used<input name="version" value="${esc(d.version)}"></label>
+      <label>Coverage (units × time)<input name="coverage" value="${esc(d.coverage)}"></label></div>
+    <div class="two"><label>Access / licence<input name="access" value="${esc(d.access)}"></label>
+      <label>Project folder (relative to the data folder)<input name="path" value="${esc(d.path)}"></label></div>
+    ${extras().length?`<div class="two">${extras().map(x=>`<label>${esc(x.label)}<input name="x_${esc(x.key)}" value="${esc((d.extra||{})[x.key]||"")}"></label>`).join("")}</div>`:""}
+    <div class="two"><label>Acquired on<input name="acq_date" type="date" value="${esc(d.acquisition.date||"")}"></label>
+      <label>Acquired by<input name="acq_by" value="${esc(d.acquisition.by||"")}"></label>
+      <label>Actual source used (URL or person)<input name="acq_source" value="${esc(d.acquisition.source_used||"")}"></label></div>
+    <label>Links, one per line: <code>Label | https://…</code><textarea name="links" rows="3">${esc(d.links.map(l=>l.label+" | "+l.url).join("\n"))}</textarea></label>
+    <div class="row"><button class="btn primary" type="submit">Save</button><button class="btn" type="button" data-act="edit">Cancel</button>
+      <span class="spacer" style="flex:1"></span><button class="btn danger" type="button" data-act="delete">Delete dataset</button></div>
+  </form>`;
+}
+function render(){
+  if(!doc) return;
+  header();
+  const rows = doc.datasets.filter(match);
+  $("count").textContent = rows.length+" of "+doc.datasets.length+" datasets";
+  $("foot").textContent = "Revision "+rev+" · saved "+(doc.saved_at||"")+" · history kept on the server";
+  if(!rows.length){ $("out").innerHTML = '<p class="empty">No dataset matches. Clear the search or pick another filter.</p>'; return; }
+  const scs = scopes().length ? [...scopes(), ...new Set(rows.map(r=>r.scope).filter(s=>!scopes().includes(s)))] : [null];
+  let html = "";
+  for(const sc of scs){
+    const rs = rows.filter(r=>sc===null || r.scope===sc || (!sc && !r.scope)); if(!rs.length) continue;
+    if(sc!==null) html += `<h2>${esc(sc||"Unassigned")}<small>${rs.length} datasets</small></h2>`;
+    const gs = [...groups(), ...new Set(rs.map(r=>r.group).filter(g=>!groups().includes(g)))];
+    for(const g of gs){ const rg = rs.filter(r=>r.group===g); if(!rg.length) continue;
+      html += `<div class="group-label">${esc(g||"Ungrouped")}</div><section>${rg.map(entry).join("")}</section>`; }
+  }
+  $("out").innerHTML = html;
+}
+
+/* ---------- interactions ---------- */
+for(const [id,key] of [["f-scope","scope"],["f-use","use"],["f-acq","acq"]])
+  $(id).addEventListener("click", e=>{ const b=e.target.closest("button"); if(!b) return; F[key]=b.dataset.v; persistUI(); render(); });
+$("f-open").onclick = ()=>{ F.open=!F.open; persistUI(); render(); };
+$("q").addEventListener("input", e=>{ F.q=e.target.value.trim(); persistUI(); render(); });
+$("addBtn").onclick = ()=>{
+  const d = {id:uid(), name:"New dataset", publisher:"", use:"", scope:(F.scope!=="all"?F.scope:(scopes()[0]||"")),
+    group:groups()[0], use_status:"main", version:"", coverage:"", access:"", path:"", links:[],
+    acquisition:{status:"wanted"}, checklist:(doc.project.checklist_template||CHECK_DEFAULT).map(t=>({id:uid(),text:t,done:false})),
+    next_steps:[], comments:[]};
+  doc.datasets.unshift(d); editId=d.id; openIds.add(d.id); F.q=""; F.acq="all"; F.use="all"; F.open=false;
+  persistUI(); render(); queueSave();
+  document.querySelector(`[data-id="${d.id}"]`)?.scrollIntoView({block:"center"});
+};
+const byId = id => doc.datasets.find(d=>d.id===id);
+$("out").addEventListener("toggle", e=>{
+  const det = e.target; if(!det.matches?.("details.work")) return;
+  const id = det.closest(".entry").dataset.id; det.open ? openIds.add(id) : openIds.delete(id); persistUI();
+}, true);
+$("out").addEventListener("change", e=>{
+  const t = e.target, art = t.closest(".entry"); if(!art) return; const d = byId(art.dataset.id);
+  if(t.dataset.act==="acq"){ d.acquisition.status = t.value;
+    if(ACQ_MAP[t.value].have && !d.acquisition.date) d.acquisition.date = today();
+    render(); queueSave(); }
+  if(t.dataset.act==="tick"){ const it = d[t.dataset.list].find(x=>x.id===t.dataset.iid);
+    it.done = t.checked; it.done_at = t.checked ? today() : undefined; render(); queueSave(); }
+});
+$("out").addEventListener("keydown", e=>{
+  if(e.key==="Enter" && e.target.matches("input[data-add]")){ e.preventDefault(); e.target.nextElementSibling.click(); }
+});
+$("out").addEventListener("click", e=>{
+  const b = e.target.closest("[data-act]"); if(!b || b.tagName==="DETAILS" || b.tagName==="SELECT" || b.type==="checkbox") return;
+  const art = b.closest(".entry"); const d = art && byId(art.dataset.id); const act = b.dataset.act;
+  if(act==="edit"){ editId = editId===d.id ? null : d.id; render(); return; }
+  if(act==="delete"){ if(confirm("Delete “"+d.name+"” and its checklist, steps and comments? (A copy stays in the server history.)")){
+      doc.datasets = doc.datasets.filter(x=>x!==d); editId=null; render(); queueSave(); } return; }
+  if(act==="add-item"){ const inp = art.querySelector(`input[data-add="${b.dataset.list}"]`); let txt = inp.value.trim(); if(!txt) return;
+    let due; const m = txt.match(/@(\d{4}-\d{2}-\d{2})\s*$/); if(m){ due=m[1]; txt=txt.slice(0,m.index).trim(); }
+    d[b.dataset.list].push({id:uid(), text:txt, done:false, ...(due?{due}:{}), created:today()}); render(); queueSave();
+    art.querySelector?.(`input[data-add="${b.dataset.list}"]`); document.querySelector(`[data-id="${d.id}"] input[data-add="${b.dataset.list}"]`)?.focus(); return; }
+  if(act==="del-item"){ d[b.dataset.list] = d[b.dataset.list].filter(x=>x.id!==b.dataset.iid); render(); queueSave(); return; }
+  if(act==="add-comment"){ const ta = art.querySelector("textarea[data-comment]"); const txt = ta.value.trim(); if(!txt) return;
+    if(!author){ author = (prompt("Your name for comments (saved in this browser):")||"").trim(); try{ localStorage.setItem("registry-author", author); }catch(e){} }
+    d.comments.push({id:uid(), author, at:new Date().toISOString(), text:txt}); render(); queueSave(); return; }
+  if(act==="del-comment"){ if(confirm("Delete this comment?")){ d.comments = d.comments.filter(c=>c.id!==b.dataset.cid); render(); queueSave(); } return; }
+});
+$("out").addEventListener("submit", e=>{
+  e.preventDefault(); const f = e.target, d = byId(f.closest(".entry").dataset.id), v = Object.fromEntries(new FormData(f));
+  for(const k of ["name","publisher","use","scope","group","use_status","version","coverage","access","path"]) d[k] = (v[k]||"").trim();
+  d.extra = Object.fromEntries(extras().map(x=>[x.key, (v["x_"+x.key]||"").trim()]).filter(([k,val])=>val));
+  d.acquisition.date = v.acq_date || undefined; d.acquisition.by = v.acq_by.trim() || undefined; d.acquisition.source_used = v.acq_source.trim() || undefined;
+  d.links = v.links.split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{ const i=l.lastIndexOf("|");
+    return i<0 ? {label:l, url:l} : {label:l.slice(0,i).trim(), url:l.slice(i+1).trim()}; });
+  editId = null; render(); queueSave(); rescan();
+});
+load();
+</script>
+</body>
+</html>

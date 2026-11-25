@@ -14,4 +14,19 @@ services:
       # This folder as WSL sees it, for the rsync command the app shows.
       # Empty when compose is started outside WSL: then config.json (pc_folder_wsl) is used.
       - DASHBOARD_HOST_DIR=${PWD:-}
+    depends_on:
+      - registry
     command: uvicorn backend.app:app --host 0.0.0.0 --port 8010 --reload --reload-dir backend
+
+  # Dataset registry, shown in the dashboard's "Datasets" tab (http://localhost:8010/registry/).
+  # Its state is registry/registry-data/registry.json (+ history/): commit that folder.
+  registry:
+    build: ./registry
+    environment:
+      - BASE_PATH=/registry
+      - DATA_ROOT=/project-data          # the "found on disk" check; remove to switch it off
+    volumes:
+      - ./registry/registry-data:/data
+      - ./registry/seed:/seed:ro         # copied once, on first start, if registry-data/registry.json is missing
+      - ${PROJECT_DATA:-../../urban-tree-detection/data}:/project-data:ro
+    restart: unless-stopped
